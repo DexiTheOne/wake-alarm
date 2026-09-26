@@ -1,3 +1,9 @@
+## 0.7.3
+
+- Keep the status bar size and content positions stable across alarm states.
+- Show red Off, green On, blue adjusted/One Time On, and grey One Time Off status icons.
+- Reset time adjustments from the status bar or by returning to the original time; remove the separate reset button and adjustment heading.
+
 ## 0.7.2
 
 - Load solely through automatically managed dashboard resources, preserving the resource identity across upgrades.

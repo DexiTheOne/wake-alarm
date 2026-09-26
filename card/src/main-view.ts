@@ -1,7 +1,7 @@
 import { customElement } from "./register-element";
 import { LitElement, css, html, type TemplateResult } from "lit";
 import { property } from "lit/decorators.js";
-import { alarmStatusLabel } from "./view-logic";
+import { alarmStatusLabel, alarmBarStatus } from "./view-logic";
 import { sharedStyles } from "./styles";
 import { DAYS, type DayKey, type HomeAssistant, type RelatedEntities } from "./types";
 
@@ -62,9 +62,8 @@ export class WakeAlarmMainView extends LitElement {
     const time = parseTime((nextAlarmState?.attributes?.next_alarm_time as string | undefined) ?? alarmTimeState?.state);
 
     const modeIcon = ICONS[fsmState] ?? ICONS.idle;
-    const modeLabel = isEnabled
-      ? labelForFsmState(fsmState)
-      : "Off";
+    const barStatus = alarmBarStatus(isEnabled, nextAlarmState?.attributes ?? {});
+    const modeLabel = fsmState === "idle" ? barStatus.label : labelForFsmState(fsmState);
 
     const snoozeUntilRaw = stateState?.attributes?.snooze_until as
       | string
@@ -94,7 +93,7 @@ export class WakeAlarmMainView extends LitElement {
           </ha-icon-button>
         </div>
 
-        <div class="mode-tile mode-${isEnabled ? fsmState : "off"}" @click=${this._handleModeTileClick}>
+        <div role="button" tabindex="0" @keydown=${(event: KeyboardEvent) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); this._handleModeTileClick(); } }} class="mode-tile mode-${isEnabled ? fsmState : "off"} status-${barStatus.color}" @click=${this._handleModeTileClick}>
           <ha-icon icon=${modeIcon}></ha-icon>
           <div class="mode-text">
             <div class="mode-label">${modeLabel}</div>
@@ -102,7 +101,6 @@ export class WakeAlarmMainView extends LitElement {
           </div>
         </div>
 
-        <div style="text-align:center; color:var(--secondary-text-color)">Next alarm · one-time adjustment</div>
         <div class="time-picker">
           <div class="time-col">
             <ha-icon-button @click=${() => this._adjustTime(1, 0)}>
@@ -130,7 +128,6 @@ export class WakeAlarmMainView extends LitElement {
         </div>
 
         ${this._adjustError ? html`<div role="alert">${this._adjustError}</div>` : null}
-        ${nextAlarmState?.attributes?.adjusted ? html`<button class="reset-adjustment" @click=${this._clearAdjustment}>Use saved daily time</button>` : null}
         ${isActive ? this._renderActiveActions(fsmState) : null}
       </ha-card>
     `;
@@ -212,7 +209,11 @@ export class WakeAlarmMainView extends LitElement {
     if (!this.hass || !this.related) return;
     const fsm = this.hass.states[this.related.sensors.state]?.state;
     if (fsm && fsm !== "idle") return;
-    this._toggleEnabled();
+    if (this.hass.states[this.related.sensors.next_alarm]?.attributes?.adjusted === true) {
+      void this._clearAdjustment();
+    } else {
+      this._toggleEnabled();
+    }
   };
 
   private _toggleDay(day: DayKey): void {
@@ -233,6 +234,10 @@ export class WakeAlarmMainView extends LitElement {
     h = ((h % 24) + 24) % 24;
     this._adjustError = "";
     try {
+      if (next?.attributes?.adjusted === true && `${pad(h)}:${pad(m)}` === next.attributes.adjusted_from) {
+        await this._clearAdjustment();
+        return;
+      }
       await this.hass.callService("wake_alarm", "adjust_next_alarm", {
         entity_id: this.related.enabled,
         time: `${pad(h)}:${pad(m)}:00`,
@@ -278,6 +283,9 @@ export class WakeAlarmMainView extends LitElement {
     css`
       .mode-tile {
         display: flex;
+        box-sizing: border-box;
+        height: 80px;
+        border: 1px solid transparent;
         align-items: center;
         gap: 16px;
         padding: 16px;
@@ -287,10 +295,11 @@ export class WakeAlarmMainView extends LitElement {
       }
       .mode-tile ha-icon {
         --mdc-icon-size: 36px;
+        flex: 0 0 36px;
       }
-      .mode-text { display: flex; flex-direction: column; gap: 2px; }
-      .mode-label { font-size: 1rem; font-weight: 500; }
-      .mode-next { font-size: 0.85rem; color: var(--secondary-text-color); }
+      .mode-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+      .mode-label { font-size: 1rem; line-height: 24px; font-weight: 500; }
+      .mode-next { font-size: 0.85rem; line-height: 20px; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
       .mode-off {
         background: var(--ha-card-background, var(--card-background-color));
@@ -313,6 +322,11 @@ export class WakeAlarmMainView extends LitElement {
         background: rgba(var(--rgb-primary-color, 33, 150, 243), 0.20);
       }
       .mode-snoozing ha-icon { color: var(--primary-color); }
+
+      .mode-tile.status-red ha-icon { color: rgb(244, 67, 54); }
+      .mode-tile.status-green ha-icon { color: rgb(76, 175, 80); }
+      .mode-tile.status-blue ha-icon { color: rgb(33, 150, 243); }
+      .mode-tile.status-grey ha-icon { color: var(--disabled-text-color); }
 
       .time-picker {
         display: flex;
@@ -339,7 +353,6 @@ export class WakeAlarmMainView extends LitElement {
       }
 
       .day-time { font-size: 0.75rem; font-variant-numeric: tabular-nums; }
-      .reset-adjustment { font: inherit; padding: 8px; cursor: pointer; }
       .daily-times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
       .daily-time { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
       .daily-time input { font: inherit; color: var(--primary-text-color); background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 8px; padding: 8px; min-width: 0; }
