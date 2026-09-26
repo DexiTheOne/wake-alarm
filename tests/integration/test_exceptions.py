@@ -134,3 +134,16 @@ async def test_adjustment_starts_remaining_ramp_window(env, freezer):
     await env.hass.async_block_till_done()
     assert env.ramp.calls == 1
     assert coord.next_fire == at(5, 10)
+
+
+async def test_stopping_test_music_does_not_skip_real_alarm(env, freezer):
+    freezer.move_to(at(5))
+    coord = await env.build(env.make_entry(), days={5})
+    env.music.block()
+    await coord.async_test_music()
+    await env.music.started.wait()
+    await coord.async_dismiss()
+    env.music.release()
+    await env.hass.async_block_till_done()
+    assert coord.next_fire == at(7)
+    assert coord._consumed_date is None

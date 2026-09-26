@@ -1043,8 +1043,12 @@ class WakeAlarmCoordinator:
             _LOGGER.debug("dismiss for %s: already idle", self.slug)
             return
 
-        occurrence = self._active_occurrence_date or dt_util.now().date().isoformat()
-        await self._consume_occurrence(occurrence)
+        real_occurrence = self._cycle_active or self._active_occurrence_date is not None
+        if real_occurrence:
+            occurrence = (
+                self._active_occurrence_date or dt_util.now().date().isoformat()
+            )
+            await self._consume_occurrence(occurrence)
         self._active_occurrence_date = None
 
         players = list(self.entry.data.get(CONF_MEDIA_PLAYER_ENTITIES) or [])
@@ -1078,7 +1082,7 @@ class WakeAlarmCoordinator:
         # IDLE no longer recomputes, so roll forward explicitly. skip_today
         # excludes today's occurrence even if dismiss happened during the ramp
         # (before alarm_time) — otherwise we'd re-select and re-fire today.
-        self.async_recompute_schedule(skip_today=True)
+        self.async_recompute_schedule(skip_today=real_occurrence)
 
     @callback
     def _cancel_snooze(self) -> None:
@@ -1280,6 +1284,7 @@ class WakeAlarmCoordinator:
         until dismissed), so the after-script waits for the dismiss. Snooze
         keeps the cycle active, so it never fires here.
         """
+        self._active_occurrence_date = None
         if not self._cycle_active:
             return
         self._cycle_active = False
@@ -1296,6 +1301,7 @@ class WakeAlarmCoordinator:
         occurrence's before-script working.
         """
         self._cycle_active = False
+        self._active_occurrence_date = None
 
     @callback
     def _run_script(self, conf_key: str, label: str) -> None:
