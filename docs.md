@@ -1,13 +1,13 @@
 # Verification record
 
-## 2026-09-26
+## Release 0.7.1
 
-Independent public repository, preserving upstream MIT licensing and existing integration identity. Version 0.7.0 installed through HACS and configuration validated. Seven daily time entities initialized from the restored common time; all original entities retained.
+Seven persistent daily time controls and recurring weekday switches are available. The card supports persistent one-time time and day exceptions. Integration identity and existing service interfaces are preserved.
 
-Live MCP checks passed: daily time changes affected only the selected day; a one-time time adjustment survived an integration reload; clearing it restored the recurring schedule. Past adjustments were rejected. Temporary weekday disable/enable states changed the next occurrence without changing the recurring switch and could be cleared.
+Validation: CI run 36225080777 passes 139 Python tests on each of two Home Assistant matrices, 19 card tests, type checking, production build, and lint. Metadata validation also passes. Production-bundle DOM tests cover pre-existing child elements and duplicate imports with one picker entry.
 
-An isolated temporary integration demonstrated scheduled light ramp, cancellation without cancelling the alarm, scheduled muted playback, snooze pause and timed resume. Auto-dismiss and final restoration are being checked before completion.
+Live functional checks passed for independent daily changes, one-time adjustment persistence across reload, clearing overrides, past-time rejection, and temporary day enable/disable without changing recurring settings. Controlled execution demonstrated light ramp, ramp cancellation preserving the alarm, scheduled playback, snooze pause/resume, automatic stop, and explicit dismissal. Temporary tests were removed afterward.
 
-Version 0.7.0 passed both Home Assistant CI matrices and card tests. Version 0.7.1 adds idempotent custom-element registration after a Firefox duplicate-registration report. Card type check, production build and 19 tests pass locally, including partial and repeated registration cases. Browser visual confirmation is delegated to the user; Safari is reported working. Deployment and live readback of 0.7.1 remain pending.
+Release 0.7.1 was deployed through HACS and read back after restart. The exact production bundle is served with JavaScript content type. The user confirmed the card displays in Safari and Firefox after the native duplicate-registration fix.
 
-Rollback: reinstall the original HACS integration without deleting the existing config entry or entity registry; restore the prior resource URL and restart. A private pre-installation full backup includes the previous local Firefox patch. Full restore requires explicit approval and the configured backup encryption key. Private device settings and credentials are not published.
+Rollback: reinstall the previous release while retaining the existing integration configuration and entity registry, restore its card resource version, and restart.
