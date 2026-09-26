@@ -718,6 +718,8 @@ class WakeAlarmCoordinator:
         at this point now >= alarm_time, so compute_next_fire picks the next
         enabled day and the old mid-cycle re-selection loop cannot occur.
         """
+        if self._cancel_alarm_schedule is not None:
+            self._cancel_alarm_schedule()
         self._cancel_alarm_schedule = None
         occurrence = dt_util.as_local(_now).date().isoformat()
         if self._consumed_date and occurrence <= self._consumed_date:
