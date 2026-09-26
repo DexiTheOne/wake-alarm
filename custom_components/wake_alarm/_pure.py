@@ -205,7 +205,7 @@ def plan_daily_schedule(
     """
     from datetime import timezone
 
-    for offset in range(8):
+    for offset in range(15):
         day = now.date() + timedelta(days=offset)
         enabled = day.weekday() in enabled_days
         exception = (day_overrides or {}).get(day.weekday())
