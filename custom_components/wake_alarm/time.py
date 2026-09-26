@@ -14,7 +14,9 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from .const import DAYS
 from .entity import WakeAlarmEntity
 
-DAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+DAY_NAMES = (
+    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+)
 
 
 async def async_setup_entry(
