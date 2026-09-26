@@ -10,6 +10,7 @@ keeps the suite focused on the state machine; the full entry-setup path (and the
 card registration that #19/#20 were about) is covered by ``test_setup.py`` and
 ``test_card_registration.py`` via the ``card_frontend`` fixture below.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -105,9 +106,7 @@ class GatedRunner:
         rel = asyncio.ensure_future(self._release.wait())
         can = asyncio.ensure_future(cancel_event.wait())
         try:
-            await asyncio.wait(
-                {rel, can}, return_when=asyncio.FIRST_COMPLETED
-            )
+            await asyncio.wait({rel, can}, return_when=asyncio.FIRST_COMPLETED)
         finally:
             rel.cancel()
             can.cancel()
@@ -116,9 +115,7 @@ class GatedRunner:
 class Env:
     """Bundle of hass + mocks + builders handed to each test."""
 
-    def __init__(
-        self, hass, ramp, music, std, unavail, no_media, media_calls
-    ) -> None:
+    def __init__(self, hass, ramp, music, std, unavail, no_media, media_calls) -> None:
         self.hass = hass
         self.ramp = ramp
         self.music = music
@@ -161,9 +158,7 @@ class Env:
     ) -> None:
         """Set the entity states the coordinator reads on every recompute."""
         hass = self.hass
-        hass.states.async_set(
-            f"switch.{slug}_enabled", "on" if enabled else "off"
-        )
+        hass.states.async_set(f"switch.{slug}_enabled", "on" if enabled else "off")
         hass.states.async_set(f"time.{slug}_alarm_time", alarm_time)
         hass.states.async_set(f"number.{slug}_length_min", str(length_min))
         enabled_days = days if days is not None else set(range(5))  # Mon-Fri
@@ -227,7 +222,38 @@ async def card_frontend(hass):
     except TypeError:
         manager = UrlManager([])  # HA < 2024.6 (no on_change arg)
     hass.data[DATA_EXTRA_MODULE_URL] = manager
-    return manager
+
+    class TestResources:
+        def __init__(self):
+            self.items = []
+
+        @property
+        def urls(self):
+            return [item["url"] for item in self.items]
+
+        async def async_get_info(self):
+            return {"resources": len(self.items)}
+
+        def async_items(self):
+            return self.items
+
+        async def async_create_item(self, data):
+            self.items.append(
+                {
+                    "id": str(len(self.items)),
+                    "url": data["url"],
+                    "type": data["res_type"],
+                }
+            )
+
+        async def async_update_item(self, item_id, data):
+            item = next(item for item in self.items if item["id"] == item_id)
+            item.update(url=data["url"], type=data["res_type"])
+
+    resources = TestResources()
+    hass.data["lovelace"] = {"resources": resources}
+    hass.config.components.add("lovelace")
+    return resources
 
 
 @pytest.fixture
@@ -241,18 +267,14 @@ async def env(hass):
         patch(f"{cov}.async_run_light_ramp", ramp),
         patch(f"{cov}.async_run_music_sequence", music),
         patch(f"{cov}.async_send_standard", new=AsyncMock()) as std,
-        patch(
-            f"{cov}.async_send_player_unavailable", new=AsyncMock()
-        ) as unavail,
+        patch(f"{cov}.async_send_player_unavailable", new=AsyncMock()) as unavail,
         patch(f"{cov}.async_send_no_media", new=AsyncMock()) as no_media,
     ):
         media_calls = {
             name: async_mock_service(hass, "media_player", name)
             for name in ("media_pause", "media_stop", "unjoin")
         }
-        environment = Env(
-            hass, ramp, music, std, unavail, no_media, media_calls
-        )
+        environment = Env(hass, ramp, music, std, unavail, no_media, media_calls)
         try:
             yield environment
         finally:

@@ -15,6 +15,7 @@ Both tests use the ``card_frontend`` fixture, which provides ``http`` plus the
 ``add_extra_js_url`` data store that ``_async_register_card`` writes to (the real
 ``frontend`` component can't be set up under PHACC — see the fixture).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -35,9 +36,7 @@ async def _expected_versioned_url(hass) -> str:
     return f"{_CARD_URL_BASE}?v={version}"
 
 
-async def test_register_card_reads_version_via_loader(
-    hass, card_frontend
-) -> None:
+async def test_register_card_reads_version_via_loader(hass, card_frontend) -> None:
     """#20: the cache-bust version comes from the async loader, not a blocking
     ``open()`` of manifest.json.
 
@@ -55,9 +54,7 @@ async def test_register_card_reads_version_via_loader(
     assert f"{_CARD_URL_BASE}?v=9.9.9-test" in card_frontend.urls
 
 
-async def test_concurrent_registration_no_duplicate_route(
-    hass, card_frontend
-) -> None:
+async def test_concurrent_registration_no_duplicate_route(hass, card_frontend) -> None:
     """Concurrent entry setups register the card exactly once (#19)."""
     # HA sets up multiple entries of a domain concurrently. Pre-fix both calls
     # passed the guard and the second raised "method GET is already registered".
@@ -71,3 +68,19 @@ async def test_concurrent_registration_no_duplicate_route(
     assert expected in urls
     # The card URL is registered exactly once, not duplicated.
     assert sum(1 for url in urls if url == expected) == 1
+
+
+async def test_resource_upgrade_preserves_id_and_does_not_load_early(
+    hass, card_frontend
+):
+    from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
+
+    await card_frontend.async_create_item(
+        {"url": f"{_CARD_URL_BASE}?v=old", "res_type": "module"}
+    )
+    original_id = card_frontend.items[0]["id"]
+    await _async_register_card(hass)
+    assert len(card_frontend.items) == 1
+    assert card_frontend.items[0]["id"] == original_id
+    assert card_frontend.urls == [await _expected_versioned_url(hass)]
+    assert not hass.data[DATA_EXTRA_MODULE_URL].urls

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.lovelace import const as lovelace_const
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -215,8 +215,43 @@ async def _async_register_card(hass: HomeAssistant) -> None:
 
         version = await _async_card_version(hass)
         versioned_url = f"{_CARD_PATH_PART}?v={version}"
-        add_extra_js_url(hass, versioned_url)
+        await _async_register_dashboard_resource(hass, versioned_url)
     except Exception:
         domain_data[_CARD_REGISTERED_KEY] = False
         raise
     _LOGGER.info("registered wake-alarm-card at %s", versioned_url)
+
+
+async def _async_register_dashboard_resource(hass: HomeAssistant, url: str) -> None:
+    """Use Lovelace's supported collection API, never early frontend modules."""
+    data = hass.data.get(getattr(lovelace_const, "LOVELACE_DATA", "lovelace"))
+    resources = (
+        data.get("resources")
+        if isinstance(data, dict)
+        else getattr(data, "resources", None)
+    )
+    if resources is None:
+        _LOGGER.warning("Lovelace resources unavailable; add %s as a module", url)
+        return
+    try:
+        await resources.async_get_info()
+        matching = [
+            item
+            for item in resources.async_items()
+            if item.get("url", "").split("?")[0] == _CARD_PATH_PART
+        ]
+        if not hasattr(resources, "async_create_item"):
+            if not any(item.get("url") == url for item in matching):
+                _LOGGER.warning("YAML resources: configure %s as a module", url)
+            return
+        if matching:
+            for item in matching:
+                if item.get("url") != url or item.get("type") != "module":
+                    await resources.async_update_item(
+                        item["id"], {"url": url, "res_type": "module"}
+                    )
+        else:
+            await resources.async_create_item({"url": url, "res_type": "module"})
+    except Exception:
+        # A card configuration problem must not stop the alarm backend loading.
+        _LOGGER.exception("Could not register Wake Alarm dashboard resource")

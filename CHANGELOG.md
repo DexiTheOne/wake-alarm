@@ -1,5 +1,6 @@
 ## 0.7.2
 
+- Load solely through automatically managed dashboard resources, preserving the resource identity across upgrades.
 - Wait for Home Assistant frontend registration before importing the card and Lit. This prevents Firefox scoped-registry initialization from discarding early card registrations.
 
 ## 0.7.1
