@@ -1,5 +1,5 @@
 /** Wait for HA's scoped-element polyfill before importing Lit or registering cards. */
-const version = "0.7.3";
+const version = "0.7.4";
 const bundle = new URL(`./wake-alarm-card-bundle.js?v=${version}`, import.meta.url);
 function loadWhenReady() {
   if (!customElements.get("home-assistant")) {

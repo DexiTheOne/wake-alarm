@@ -21,7 +21,7 @@ describe("showsMediaControls", () => {
 
 describe("next alarm label", () => {
   it("shows an earlier one-time adjustment in HA timezone", () => {
-    expect(alarmStatusLabel("2026-09-26T11:30:00Z", {timezone:"America/New_York", adjusted:true, adjusted_from:"08:40", adjusted_time:"07:30", adjustment_direction:"earlier"})).toContain("Sat, adjusted earlier from 08:40 to 07:30");
+    expect(alarmStatusLabel("2026-09-26T11:30:00Z", {timezone:"America/New_York", adjusted:true, adjusted_from:"08:40", adjusted_time:"07:30", adjustment_direction:"earlier"})).toContain("Sat, Earlier by 1 Hour 10 Minutes");
   });
   it("uses the server weekday even when UTC is on another day", () => {
     expect(alarmStatusLabel("2026-09-27T01:00:00Z", {timezone:"America/New_York"})).toContain("Sat");
@@ -46,4 +46,11 @@ describe("alarm bar", () => {
   it("suppresses adjustment text when original and adjusted times match", () => {
     expect(alarmStatusLabel("2026-09-27T12:40:00Z", {...attrs, timezone: "America/New_York", adjusted: true, adjusted_from: "08:40", adjusted_time: "08:40"})).not.toContain("adjusted");
   });
+});
+
+it("describes skipped Sunday even while Monday is the next firing", () => {
+  expect(alarmStatusLabel("2026-09-28T13:00:00Z", {timezone: "America/New_York", card_alarm: {next_alarm_date: "2026-09-27", next_alarm_time: "08:40:00"}})).toBe("Sun 08:40");
+});
+it.each([["08:30", "08:20", "Earlier", "10 Minutes"], ["08:30", "07:30", "Earlier", "1 Hour"], ["08:30", "10:31", "Later", "2 Hours 1 Minute"]])("formats adjustment duration %s to %s", (from, to, direction, duration) => {
+  expect(alarmStatusLabel("2026-09-27T12:40:00Z", {timezone: "America/New_York", adjusted: true, adjusted_from: from, adjusted_time: to, adjustment_direction: direction.toLowerCase()})).toBe(`Sun, ${direction} by ${duration}`);
 });

@@ -10,7 +10,7 @@ On first installation, daily times inherit the restored common alarm time. Later
 
 Add DexiTheOne/wake-alarm as an Integration in HACS custom repositories, then download it. When replacing the original, remove the original HACS installation first, without deleting the Home Assistant config entry.
 
-Back up the installed integration directory and its card before replacing files. Keep the existing wake_alarm config entry and entity registry; do not remove and recreate the integration. Install custom_components/wake_alarm into the Home Assistant config directory, validate configuration, and restart Home Assistant to load Python code. The integration registers or updates /wake_alarm/wake-alarm-card.js?v=0.7.3 as a dashboard module automatically. Refresh the browser after an update. YAML resource configurations must include that module explicitly.
+Back up the installed integration directory and its card before replacing files. Keep the existing wake_alarm config entry and entity registry; do not remove and recreate the integration. Install custom_components/wake_alarm into the Home Assistant config directory, validate configuration, and restart Home Assistant to load Python code. The integration registers or updates /wake_alarm/wake-alarm-card.js?v=0.7.4 as a dashboard module automatically. Refresh the browser after an update. YAML resource configurations must include that module explicitly.
 
 The old HACS repository must cease managing these files before future HACS updates can overwrite them. Do not remove it through an operation that deletes the newly installed directory. HACS support was enabled at the user's request.
 

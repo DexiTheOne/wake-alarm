@@ -24,3 +24,7 @@ CI run 36259802321 passed both Home Assistant matrices, lint, card type check, 2
 ## Release 0.7.3
 
 Status-bar dimensions and content positions stay stable across on/off states. The bar clears an adjusted time before toggling the next occurrence once. Returning the picker to its original time clears the stored adjustment. Removed the adjustment heading and separate reset button; added Off/On/One Time Off/One Time On labels with red/green/grey/blue icons. Active-alarm tap guard retained. Card type check, production build, and 29 tests passed. HACS deployment and Firefox/MCP checks passed for stable layout, adjustment reset/return-to-original, one-time disable, and read-only saved schedule settings. Permanent daily values were preserved. One Time On is automated-tested only; its temporary permanent-switch test setup was blocked by approval review. Rollback: install 0.7.2 through HACS and restore its card resource URL.
+
+## Release 0.7.4
+
+The globally-off bar ignores mouse and keyboard actions. A skipped occurrence remains selected in the card; adjusting its time leaves the following scheduled firing unchanged. Adjustment text uses hours/minutes, and the saved schedule table has column headers. Card type check, production build and 35 tests passed. Backend regression covers skipped-date targeting, persistence and re-enabling. Deployment and live evidence pending. Rollback: reinstall 0.7.3, restore its resource URL and restart.

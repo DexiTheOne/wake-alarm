@@ -1,7 +1,7 @@
 import { customElement } from "./register-element";
 import { LitElement, css, html, type TemplateResult } from "lit";
 import { property } from "lit/decorators.js";
-import { alarmStatusLabel, alarmBarStatus, nextAlarmDay } from "./view-logic";
+import { alarmStatusLabel, alarmBarStatus, nextAlarmDay, cardAlarmAttributes } from "./view-logic";
 import { sharedStyles } from "./styles";
 import { DAYS, type DayKey, type HomeAssistant, type RelatedEntities } from "./types";
 
@@ -56,10 +56,11 @@ export class WakeAlarmMainView extends LitElement {
     const alarmTimeState = this.hass.states[r.alarmTime];
     const nextAlarmState = this.hass.states[r.sensors.next_alarm];
 
+    const cardAttrs = cardAlarmAttributes(nextAlarmState?.attributes ?? {});
     const isEnabled = enabledState?.state === "on";
     const fsmState = stateState?.state ?? "idle";
     const isActive = activeState?.state === "on";
-    const time = parseTime((nextAlarmState?.attributes?.next_alarm_time as string | undefined) ?? alarmTimeState?.state);
+    const time = parseTime((cardAttrs.next_alarm_time as string | undefined) ?? alarmTimeState?.state);
 
     const modeIcon = ICONS[fsmState] ?? ICONS.idle;
     const barStatus = alarmBarStatus(isEnabled, nextAlarmState?.attributes ?? {});
@@ -93,11 +94,11 @@ export class WakeAlarmMainView extends LitElement {
           </ha-icon-button>
         </div>
 
-        <div role="button" tabindex="0" @keydown=${(event: KeyboardEvent) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); this._handleModeTileClick(); } }} class="mode-tile mode-${isEnabled ? fsmState : "off"} status-${barStatus.color}" @click=${this._handleModeTileClick}>
+        <div role="button" tabindex=${isEnabled ? "0" : "-1"} aria-disabled=${!isEnabled} @keydown=${(event: KeyboardEvent) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); this._handleModeTileClick(); } }} class="mode-tile mode-${isEnabled ? fsmState : "off"} status-${barStatus.color}" @click=${this._handleModeTileClick}>
           <ha-icon icon=${modeIcon}></ha-icon>
           <div class="mode-text">
             <div class="mode-label">${modeLabel}</div>
-            <div class="mode-next">${isEnabled ? nextLabel : "Enable globally in HA settings"}</div>
+            <div class="mode-next">${isEnabled ? nextLabel : ""}</div>
           </div>
         </div>
 
@@ -202,9 +203,10 @@ export class WakeAlarmMainView extends LitElement {
     // Snooze + Dismiss buttons (and Cancel ramp during ramping) handle
     // those actions explicitly.
     if (!this.hass || !this.related) return;
+    if (this.hass.states[this.related.enabled]?.state !== "on") return;
     const fsm = this.hass.states[this.related.sensors.state]?.state;
     if (fsm && fsm !== "idle") return;
-    if (this.hass.states[this.related.sensors.next_alarm]?.attributes?.adjusted === true) {
+    if (cardAlarmAttributes(this.hass.states[this.related.sensors.next_alarm]?.attributes ?? {}).adjusted === true) {
       void this._clearAdjustment();
     } else {
       const day = nextAlarmDay(this.hass.states[this.related.sensors.next_alarm]?.attributes ?? {});
@@ -222,7 +224,8 @@ export class WakeAlarmMainView extends LitElement {
   private async _adjustTime(dh: number, dm: number): Promise<void> {
     if (!this.hass || !this.related) return;
     const next = this.hass.states[this.related.sensors.next_alarm];
-    const cur = parseTime(next?.attributes?.next_alarm_time as string | undefined);
+    const attrs = cardAlarmAttributes(next?.attributes ?? {});
+    const cur = parseTime(attrs.next_alarm_time as string | undefined);
     let h = cur.h + dh;
     let m = cur.m + dm;
     if (m >= 60) { m -= 60; h += 1; }
@@ -230,14 +233,14 @@ export class WakeAlarmMainView extends LitElement {
     h = ((h % 24) + 24) % 24;
     this._adjustError = "";
     try {
-      if (next?.attributes?.adjusted === true && `${pad(h)}:${pad(m)}` === next.attributes.adjusted_from) {
+      if (attrs.adjusted === true && `${pad(h)}:${pad(m)}` === attrs.adjusted_from) {
         await this._clearAdjustment();
         return;
       }
       await this.hass.callService("wake_alarm", "adjust_next_alarm", {
         entity_id: this.related.enabled,
         time: `${pad(h)}:${pad(m)}:00`,
-        expected_date: next?.attributes?.next_alarm_date,
+        expected_date: attrs.next_alarm_date,
       });
     } catch (error) {
       this._adjustError = (error as { message?: string }).message ?? "Could not adjust the next alarm";
@@ -289,6 +292,7 @@ export class WakeAlarmMainView extends LitElement {
         cursor: pointer;
         transition: background 0.15s ease;
       }
+      .mode-tile[aria-disabled="true"] { cursor: default; }
       .mode-tile ha-icon {
         --mdc-icon-size: 36px;
         flex: 0 0 36px;

@@ -1,3 +1,10 @@
+## 0.7.4
+
+- Lock the top bar while globally off and remove its enable instruction.
+- Keep the card description/time controls on a skipped occurrence, with date-scoped one-time adjustment support.
+- Describe adjustments as Earlier/Later by hours and minutes.
+- Add Day, Time and Status headers to the read-only saved-schedule table.
+
 ## 0.7.3
 
 - Keep the status bar size and content positions stable across alarm states.

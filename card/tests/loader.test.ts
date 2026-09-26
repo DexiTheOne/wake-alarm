@@ -14,7 +14,7 @@ it('imports nothing until HA initializes its final registry, then loads the vers
   expect(load).not.toHaveBeenCalled();
   registryReady = true;
   vi.advanceTimersByTime(50);
-  expect(load).toHaveBeenCalledWith('http://localhost/wake_alarm/wake-alarm-card-bundle.js?v=0.7.3');
+  expect(load).toHaveBeenCalledWith('http://localhost/wake_alarm/wake-alarm-card-bundle.js?v=0.7.4');
   expect(load).toHaveBeenCalledTimes(1);
   vi.useRealTimers();
 });

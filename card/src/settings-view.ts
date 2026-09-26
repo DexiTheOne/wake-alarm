@@ -115,12 +115,16 @@ export class WakeAlarmSettingsView extends LitElement {
 
         <div class="section">
           <h3>Recurring weekly schedule</h3>
-          <p>Saved daily settings are read-only here. Card schedule changes apply once.</p>
-          ${DAYS.map((day) => html`<div class="saved-day">
-            <span>${day.charAt(0).toUpperCase() + day.slice(1)}</span>
-            <span>${this.hass!.states[r.dayTimes?.[day] ?? r.alarmTime]?.state.slice(0,5) ?? "--:--"}</span>
-            <span>${this.hass!.states[r.days[day]]?.state === "on" ? "On" : "Off"}</span>
-          </div>`)}
+          <table class="saved-schedule">
+            <thead><tr><th scope="col">Day</th><th scope="col">Time</th><th scope="col">Status</th></tr></thead>
+            <tbody>
+          ${DAYS.map((day) => html`<tr class="saved-day">
+            <td>${day.charAt(0).toUpperCase() + day.slice(1)}</td>
+            <td>${this.hass!.states[r.dayTimes?.[day] ?? r.alarmTime]?.state.slice(0,5) ?? "--:--"}</td>
+            <td>${this.hass!.states[r.days[day]]?.state === "on" ? "On" : "Off"}</td>
+          </tr>`)}
+            </tbody>
+          </table>
         </div>
 
         <div class="section">
@@ -370,7 +374,10 @@ export class WakeAlarmSettingsView extends LitElement {
   static styles = [
     sharedStyles,
     css`
-      .saved-day { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; font-variant-numeric: tabular-nums; }
+      .saved-schedule { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+      .saved-schedule th, .saved-schedule td { text-align: left; padding: 8px 0; }
+      .saved-schedule th { border-bottom: 1px solid var(--divider-color); }
+      .section h3 { margin: 0; }
       .section {
         display: flex;
         flex-direction: column;

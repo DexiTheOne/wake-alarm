@@ -478,6 +478,29 @@ class WakeAlarmCoordinator:
         )
         return decision if decision.next_fire else None
 
+    def _card_occurrence(self) -> datetime | None:
+        """Keep the card on a skipped occurrence until its one-time off is cleared."""
+        statuses = self._day_status()
+        candidates = [
+            (idx, statuses[key.split("_")[-1]])
+            for idx, key in enumerate(DAYS)
+            if statuses[key.split("_")[-1]]["enabled"]
+            or statuses[key.split("_")[-1]]["override"] is not None
+        ]
+        if not candidates:
+            return None
+        idx, status = min(candidates, key=lambda item: item[1]["date"])
+        fallback = self._read_alarm_time() or dt_time(7)
+        saved = self._read_day_times(fallback)[idx]
+        target = datetime.combine(
+            datetime.fromisoformat(status["date"]).date(), saved, tzinfo=dt_util.now().tzinfo
+        )
+        if self._override:
+            adjusted = dt_util.as_local(dt_util.parse_datetime(self._override["adjusted"]))
+            if adjusted.date() == target.date():
+                target = adjusted
+        return target
+
     @property
     def schedule_attributes(self) -> dict:
         next_fire = self._next_fire
@@ -487,6 +510,7 @@ class WakeAlarmCoordinator:
             "next_alarm_date": next_fire.date().isoformat() if next_fire else None,
             "adjusted": False,
             "day_status": self._day_status(),
+            "card_alarm": self._card_alarm_attributes(),
         }
         if self._override and next_fire:
             adjusted = dt_util.parse_datetime(self._override["adjusted"])
@@ -498,6 +522,27 @@ class WakeAlarmCoordinator:
                     adjusted=True,
                     adjusted_from=original.strftime("%H:%M"),
                     adjusted_time=next_fire.strftime("%H:%M"),
+                    adjustment_direction="earlier" if adjusted < original else "later",
+                )
+        return attrs
+
+    def _card_alarm_attributes(self) -> dict:
+        target = self._card_occurrence()
+        if target is None:
+            return {}
+        attrs = {
+            "next_alarm_date": target.date().isoformat(),
+            "next_alarm_time": target.strftime("%H:%M:%S"),
+            "adjusted": False,
+        }
+        if self._override:
+            adjusted = dt_util.as_local(dt_util.parse_datetime(self._override["adjusted"]))
+            original = dt_util.as_local(dt_util.parse_datetime(self._override["original"]))
+            if target == adjusted and adjusted != original:
+                attrs.update(
+                    adjusted=True,
+                    adjusted_from=original.strftime("%H:%M"),
+                    adjusted_time=adjusted.strftime("%H:%M"),
                     adjustment_direction="earlier" if adjusted < original else "later",
                 )
         return attrs
@@ -581,6 +626,9 @@ class WakeAlarmCoordinator:
                     "Dismiss the active alarm before adjusting the next one"
                 )
             target = self._next_fire
+            selected = self._card_occurrence()
+            if expected_date and selected and selected.date().isoformat() == expected_date:
+                target = selected
             if target is None:
                 raise HomeAssistantError(
                     "Enable an alarm day before adjusting its next time"
@@ -605,7 +653,10 @@ class WakeAlarmCoordinator:
                 == target.date()
             ):
                 original = previous["original"]
-            self._override = {"original": original, "adjusted": adjusted.isoformat()}
+            self._override = (
+                None if dt_util.parse_datetime(original) == adjusted
+                else {"original": original, "adjusted": adjusted.isoformat()}
+            )
             try:
                 await self._save_schedule()
             except Exception:

@@ -147,3 +147,27 @@ async def test_stopping_test_music_does_not_skip_real_alarm(env, freezer):
     await env.hass.async_block_till_done()
     assert coord.next_fire == at(7)
     assert coord._consumed_date is None
+
+
+async def test_adjustment_targets_skipped_occurrence(env, freezer):
+    freezer.move_to(at(5))
+    entry = env.make_entry()
+    coord = await env.build(entry, days={5, 6})
+    await coord.async_toggle_day_once("sat")
+    assert coord.next_fire.day == 10
+    assert coord.schedule_attributes["card_alarm"]["next_alarm_date"] == "2026-05-09"
+    await coord.async_adjust_next_alarm(time(6, 50), "2026-05-09")
+    assert coord.next_fire.day == 10
+    selected = coord.schedule_attributes["card_alarm"]
+    assert selected["next_alarm_time"] == "06:50:00"
+    assert selected["adjusted_from"] == "07:00"
+    assert env.hass.states.get("time.test_alarm_time").state == "07:00:00"
+    await coord.async_unload()
+    restored = await env.build(entry, days={5, 6})
+    assert restored.schedule_attributes["card_alarm"]["next_alarm_time"] == "06:50:00"
+    assert restored.next_fire.day == 10
+    await restored.async_toggle_day_once("sat")
+    assert restored.next_fire == at(6, 50)
+    await restored.async_adjust_next_alarm(time(7), "2026-05-09")
+    assert restored._override is None
+    assert restored.schedule_attributes["card_alarm"]["adjusted"] is False
