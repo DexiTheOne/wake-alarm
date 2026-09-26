@@ -108,3 +108,38 @@ test_urgent_notification:
   target:
     entity:
       integration: wake_alarm
+
+adjust_next_alarm:
+  name: Adjust next alarm
+  description: Change only the next enabled occurrence; recurring daily times stay unchanged.
+  target:
+    entity:
+      integration: wake_alarm
+  fields:
+    time:
+      required: true
+      selector:
+        time:
+    expected_date:
+      description: Optional next-alarm date used to reject stale card adjustments.
+      selector:
+        text:
+clear_adjustment:
+  name: Clear next alarm adjustment
+  description: Return the next alarm to its recurring weekday time.
+  target:
+    entity:
+      integration: wake_alarm
+
+toggle_day_once:
+  name: Toggle next weekday occurrence
+  description: Toggle a single weekday occurrence without changing its recurring switch. A second toggle clears it.
+  target:
+    entity:
+      integration: wake_alarm
+  fields:
+    day:
+      required: true
+      selector:
+        select:
+          options: [mon, tue, wed, thu, fri, sat, sun]

@@ -15,3 +15,16 @@
 export function showsMediaControls(players: readonly string[] | undefined): boolean {
   return !!players && players.length > 0;
 }
+
+
+/** Uses the HA timezone, regardless of the browser timezone. */
+export function alarmStatusLabel(iso: string, attrs: Record<string, unknown>): string {
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return "No upcoming alarm";
+  const timeZone = typeof attrs.timezone === "string" ? attrs.timezone : undefined;
+  const weekday = new Intl.DateTimeFormat(undefined, { weekday: "short", timeZone }).format(dt);
+  if (attrs.adjusted === true && attrs.adjusted_from && attrs.adjusted_time) {
+    return `${weekday}, adjusted ${attrs.adjustment_direction} from ${attrs.adjusted_from} to ${attrs.adjusted_time}`;
+  }
+  return new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone }).format(dt);
+}

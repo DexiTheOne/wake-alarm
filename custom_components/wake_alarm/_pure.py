@@ -183,3 +183,53 @@ def parse_action_id(action: str) -> tuple[str, str] | None:
     if not action_name or not entry_id:
         return None
     return action_name, entry_id
+
+
+def plan_daily_schedule(
+    now: datetime,
+    alarm_time: dt_time,
+    enabled_days: set[int],
+    day_times: dict[int, dt_time],
+    length_min: int,
+    grace_min: int = 0,
+    override: datetime | None = None,
+    consumed_date: str | None = None,
+    skip_date: str | None = None,
+    day_overrides: dict[int, dict] | None = None,
+) -> ScheduleDecision:
+    """Select one occurrence per local calendar day, including a one-shot time.
+
+    A consumed occurrence stays consumed across restarts and time edits, so
+    moving an alarm earlier cannot cause its regular time to fire as well.
+    Compare UTC instants to handle the repeated hour at the end of DST.
+    """
+    from datetime import timezone
+
+    for offset in range(8):
+        day = now.date() + timedelta(days=offset)
+        enabled = day.weekday() in enabled_days
+        exception = (day_overrides or {}).get(day.weekday())
+        if exception and exception.get("date") == day.isoformat():
+            enabled = exception["enabled"]
+        if not enabled:
+            continue
+        if (
+            consumed_date and day.isoformat() <= consumed_date
+        ) or day.isoformat() == skip_date:
+            continue
+        chosen = day_times.get(day.weekday(), alarm_time)
+        candidate = datetime.combine(day, chosen, tzinfo=now.tzinfo)
+        if override is not None and override.date() == day:
+            candidate = override
+        # Normalize a nonexistent spring-forward time to its real instant.
+        candidate = candidate.astimezone(timezone.utc).astimezone(now.tzinfo)
+        delta = (
+            candidate.astimezone(timezone.utc) - now.astimezone(timezone.utc)
+        ).total_seconds()
+        if delta <= 0 and not (
+            offset == 0 and grace_min > 0 and delta >= -grace_min * 60
+        ):
+            continue
+        ramp = candidate - timedelta(minutes=length_min)
+        return ScheduleDecision(candidate, ramp, delta <= 0, ramp <= now < candidate)
+    return ScheduleDecision(None, None, False, False)

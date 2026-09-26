@@ -1,4 +1,5 @@
 """The Wake Alarm integration."""
+
 from __future__ import annotations
 
 import logging
@@ -41,6 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator}
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    coordinator.async_recompute_schedule(catch_up=True)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
     async_setup_services(hass)
@@ -76,9 +78,7 @@ async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
     await hass.config_entries.async_reload(entry.entry_id)
 
 
-async def async_migrate_entry(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> bool:
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate config entries to the current schema.
 
     v1 → v2: day-toggle entity keys renamed mon..sun → d1_mon..d7_sun
@@ -114,9 +114,7 @@ async def async_migrate_entry(
         slug = entry.data.get(CONF_SLUG, "")
         for old_key, new_key in DAY_KEY_MIGRATION.items():
             old_unique = f"{entry.entry_id}_{old_key}"
-            entity_id = registry.async_get_entity_id(
-                "switch", DOMAIN, old_unique
-            )
+            entity_id = registry.async_get_entity_id("switch", DOMAIN, old_unique)
             if entity_id is None:
                 continue
             new_unique = f"{entry.entry_id}_{new_key}"
@@ -124,11 +122,7 @@ async def async_migrate_entry(
             registry.async_update_entity(
                 entity_id,
                 new_unique_id=new_unique,
-                **(
-                    {"new_entity_id": new_entity_id}
-                    if new_entity_id
-                    else {}
-                ),
+                **({"new_entity_id": new_entity_id} if new_entity_id else {}),
             )
             _LOGGER.info(
                 "wake_alarm migration v1→v2: %s → %s", entity_id, new_entity_id
@@ -204,9 +198,7 @@ async def _async_register_card(hass: HomeAssistant) -> None:
                 [StaticPathConfig(_CARD_PATH_PART, str(_CARD_PATH), True)]
             )
         else:
-            hass.http.register_static_path(
-                _CARD_PATH_PART, str(_CARD_PATH), True
-            )
+            hass.http.register_static_path(_CARD_PATH_PART, str(_CARD_PATH), True)
 
         version = await _async_card_version(hass)
         versioned_url = f"{_CARD_PATH_PART}?v={version}"

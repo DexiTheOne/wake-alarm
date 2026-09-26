@@ -1,5 +1,6 @@
 import { LitElement, css, html, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { alarmStatusLabel } from "./view-logic";
 import { sharedStyles } from "./styles";
 import { DAYS, type DayKey, type HomeAssistant, type RelatedEntities } from "./types";
 
@@ -8,6 +9,7 @@ export class WakeAlarmMainView extends LitElement {
   @property({ attribute: false }) public hass?: HomeAssistant;
   @property({ attribute: false }) public related?: RelatedEntities;
 
+  @property({ attribute: false }) private _adjustError = "";
   private _tickInterval?: number;
 
   disconnectedCallback(): void {
@@ -56,7 +58,7 @@ export class WakeAlarmMainView extends LitElement {
     const isEnabled = enabledState?.state === "on";
     const fsmState = stateState?.state ?? "idle";
     const isActive = activeState?.state === "on";
-    const time = parseTime(alarmTimeState?.state);
+    const time = parseTime((nextAlarmState?.attributes?.next_alarm_time as string | undefined) ?? alarmTimeState?.state);
 
     const modeIcon = ICONS[fsmState] ?? ICONS.idle;
     const modeLabel = isEnabled
@@ -75,7 +77,7 @@ export class WakeAlarmMainView extends LitElement {
     const nextLabel = snoozeCountdown
       ? `Music in ${snoozeCountdown}`
       : nextAlarmState?.state && nextAlarmState.state !== "unknown"
-        ? formatNext(nextAlarmState.state)
+        ? alarmStatusLabel(nextAlarmState.state, nextAlarmState.attributes)
         : "No upcoming alarm";
 
     return html`
@@ -99,7 +101,7 @@ export class WakeAlarmMainView extends LitElement {
           </div>
         </div>
 
-        <div style="text-align:center; color:var(--secondary-text-color)">Set all days</div>
+        <div style="text-align:center; color:var(--secondary-text-color)">Next alarm · one-time adjustment</div>
         <div class="time-picker">
           <div class="time-col">
             <ha-icon-button @click=${() => this._adjustTime(1, 0)}>
@@ -126,22 +128,8 @@ export class WakeAlarmMainView extends LitElement {
           ${DAYS.map((d) => this._renderDayChip(d))}
         </div>
 
-        <div class="daily-times">
-          ${DAYS.map((day) => {
-            const id = r.dayTimes?.[day];
-            if (!id) return null;
-            const enabled = this.hass!.states[r.days[day]]?.state === "on";
-            return html`<label class="daily-time">
-              <span>${LABELS[day]} ${enabled ? "" : "(off)"}</span>
-              <input type="time" aria-label=${`${LABELS[day]} alarm time`}
-                .value=${this.hass!.states[id]?.state.slice(0, 5) ?? "07:00"}
-                @change=${(event: Event) => {
-                  const value = (event.target as HTMLInputElement).value;
-                  if (value) void this.hass!.callService("time", "set_value", {entity_id: id, time: `${value}:00`});
-                }} />
-            </label>`;
-          })}
-        </div>
+        ${this._adjustError ? html`<div role="alert">${this._adjustError}</div>` : null}
+        ${nextAlarmState?.attributes?.adjusted ? html`<button class="reset-adjustment" @click=${this._clearAdjustment}>Use saved daily time</button>` : null}
         ${isActive ? this._renderActiveActions(fsmState) : null}
       </ha-card>
     `;
@@ -151,13 +139,19 @@ export class WakeAlarmMainView extends LitElement {
     if (!this.hass || !this.related) return html``;
     const id = this.related.days[day];
     const on = this.hass.states[id]?.state === "on";
+    const status = this.hass.states[this.related.sensors.next_alarm]?.attributes?.day_status as Record<string, {override: boolean | null}> | undefined;
+    const override = status?.[day]?.override;
+    const color = override === true ? "once-on" : override === false ? "once-off" : on ? "on" : "off";
     return html`
       <div
-        class="chip ${on ? "chip-on" : "chip-off"}"
+        class="chip chip-${color}" role="button" tabindex="0"
+        aria-label=${`${LABELS[day]} ${override === true ? "enabled once" : override === false ? "disabled once" : on ? "enabled" : "disabled"}`}
+        @keydown=${(event: KeyboardEvent) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); this._toggleDay(day); } }}
         @click=${() => this._toggleDay(day)}
       >
-        <ha-icon icon=${on ? "mdi:check-circle" : "mdi:close-circle-outline"}></ha-icon>
+        <ha-icon icon=${(override ?? on) ? "mdi:check-circle" : "mdi:close-circle-outline"}></ha-icon>
         <span>${LABELS[day]}</span>
+        <span class="day-time">${(this.hass.states[this.related.dayTimes?.[day] ?? this.related.alarmTime]?.state ?? "--:--").slice(0, 5)}</span>
       </div>
     `;
   }
@@ -222,24 +216,41 @@ export class WakeAlarmMainView extends LitElement {
 
   private _toggleDay(day: DayKey): void {
     if (!this.hass || !this.related) return;
-    void this.hass.callService("switch", "toggle", {
-      entity_id: this.related.days[day],
-    });
+    void this.hass.callService("wake_alarm", "toggle_day_once", {
+      entity_id: this.related.enabled, day,
+    }).catch((error: {message?: string}) => { this._adjustError = error.message ?? "Could not change this day"; });
   }
 
-  private _adjustTime(dh: number, dm: number): void {
+  private async _adjustTime(dh: number, dm: number): Promise<void> {
     if (!this.hass || !this.related) return;
-    const cur = parseTime(this.hass.states[this.related.alarmTime]?.state);
+    const next = this.hass.states[this.related.sensors.next_alarm];
+    const cur = parseTime(next?.attributes?.next_alarm_time as string | undefined);
     let h = cur.h + dh;
     let m = cur.m + dm;
     if (m >= 60) { m -= 60; h += 1; }
     if (m < 0) { m += 60; h -= 1; }
     h = ((h % 24) + 24) % 24;
-    void this.hass.callService("time", "set_value", {
-      entity_id: this.related.alarmTime,
-      time: `${pad(h)}:${pad(m)}:00`,
-    });
+    this._adjustError = "";
+    try {
+      await this.hass.callService("wake_alarm", "adjust_next_alarm", {
+        entity_id: this.related.enabled,
+        time: `${pad(h)}:${pad(m)}:00`,
+        expected_date: next?.attributes?.next_alarm_date,
+      });
+    } catch (error) {
+      this._adjustError = (error as { message?: string }).message ?? "Could not adjust the next alarm";
+    }
   }
+
+  private _clearAdjustment = async (): Promise<void> => {
+    if (!this.hass || !this.related) return;
+    try {
+      await this.hass.callService("wake_alarm", "clear_adjustment", {entity_id: this.related.enabled});
+      this._adjustError = "";
+    } catch (error) {
+      this._adjustError = (error as { message?: string }).message ?? "Could not clear the adjustment";
+    }
+  };
 
   private _snooze = (): void => {
     if (!this.hass || !this.related) return;
@@ -326,6 +337,8 @@ export class WakeAlarmMainView extends LitElement {
         color: var(--secondary-text-color);
       }
 
+      .day-time { font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+      .reset-adjustment { font: inherit; padding: 8px; cursor: pointer; }
       .daily-times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
       .daily-time { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
       .daily-time input { font: inherit; color: var(--primary-text-color); background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 8px; padding: 8px; min-width: 0; }
@@ -351,6 +364,10 @@ export class WakeAlarmMainView extends LitElement {
       .chip-on ha-icon { color: rgb(76, 175, 80); }
       .chip-off ha-icon { color: var(--disabled-text-color); }
       .chip-on { border-color: rgba(76, 175, 80, 0.4); }
+      .chip-once-on { border-color: var(--primary-color); background: rgba(33,150,243,0.12); }
+      .chip-once-on ha-icon { color: rgb(33,150,243); }
+      .chip-once-off { border-color: rgb(244,67,54); background: rgba(244,67,54,0.12); }
+      .chip-once-off ha-icon { color: rgb(244,67,54); }
 
       /* Snooze + Dismiss share the mode-tile vibe: tall, prominent,
          half-width each so they line up under the mode tile. */
@@ -430,18 +447,6 @@ function parseTime(raw: string | undefined): { h: number; m: number } {
 
 function pad(n: number): string {
   return n.toString().padStart(2, "0");
-}
-
-function formatNext(iso: string): string {
-  const dt = new Date(iso);
-  if (Number.isNaN(dt.getTime())) return iso;
-  const opts: Intl.DateTimeFormatOptions = {
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  };
-  return new Intl.DateTimeFormat(undefined, opts).format(dt);
 }
 
 function formatCountdown(iso: string): string {

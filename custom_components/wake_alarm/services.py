@@ -14,6 +14,7 @@ The mobile_app_notification_action event is decoded once globally; the
 notification payloads encode the entry_id in the action string, so we
 can resolve back to the right coordinator without scanning.
 """
+
 from __future__ import annotations
 
 import logging
@@ -47,6 +48,7 @@ _NOTIFICATION_ACTION_EVENT = "mobile_app_notification_action"
 
 # Target-only services: each maps service-name → coordinator method-name.
 _TARGET_SERVICES: tuple[tuple[str, str], ...] = (
+    ("clear_adjustment", "async_clear_adjustment"),
     ("snooze", "async_snooze"),
     ("dismiss", "async_dismiss"),
     ("cancel_ramp", "async_cancel_ramp"),
@@ -86,6 +88,45 @@ def async_setup_services(hass: HomeAssistant) -> None:
         _build_set_media_handler(hass),
         schema=_SET_MEDIA_SCHEMA,
     )
+
+    async def adjust(call: ServiceCall) -> None:
+        for entry_id in _resolve_target_entries(hass, call.data[ATTR_ENTITY_ID]):
+            await hass.data[DOMAIN][entry_id]["coordinator"].async_adjust_next_alarm(
+                call.data["time"], call.data.get("expected_date")
+            )
+
+    hass.services.async_register(
+        DOMAIN,
+        "adjust_next_alarm",
+        adjust,
+        schema=vol.Schema(
+            {
+                vol.Required(ATTR_ENTITY_ID): vol.All(cv.ensure_list, [cv.entity_id]),
+                vol.Required("time"): cv.time,
+                vol.Optional("expected_date"): cv.string,
+            }
+        ),
+    )
+
+    async def toggle_day(call: ServiceCall) -> None:
+        for entry_id in _resolve_target_entries(hass, call.data[ATTR_ENTITY_ID]):
+            await hass.data[DOMAIN][entry_id]["coordinator"].async_toggle_day_once(
+                call.data["day"]
+            )
+
+    hass.services.async_register(
+        DOMAIN,
+        "toggle_day_once",
+        toggle_day,
+        schema=vol.Schema(
+            {
+                vol.Required(ATTR_ENTITY_ID): vol.All(cv.ensure_list, [cv.entity_id]),
+                vol.Required("day"): vol.In(
+                    ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+                ),
+            }
+        ),
+    )
     for service_name, method_name in _TARGET_SERVICES:
         hass.services.async_register(
             DOMAIN,
@@ -106,7 +147,12 @@ def async_unload_services(hass: HomeAssistant) -> None:
     remove: CALLBACK_TYPE | None = domain_data.pop(_LISTENER_KEY, None)
     if remove is not None:
         remove()
-    for service in (SERVICE_SET_MEDIA, *(name for name, _ in _TARGET_SERVICES)):
+    for service in (
+        "toggle_day_once",
+        "adjust_next_alarm",
+        SERVICE_SET_MEDIA,
+        *(name for name, _ in _TARGET_SERVICES),
+    ):
         if hass.services.has_service(DOMAIN, service):
             hass.services.async_remove(DOMAIN, service)
 
@@ -154,9 +200,7 @@ def _build_action_handler(hass: HomeAssistant) -> Callable:
         domain_data = hass.data.get(DOMAIN, {})
         entry_data = domain_data.get(entry_id)
         if entry_data is None:
-            _LOGGER.debug(
-                "ignoring action %s: no coordinator for %s", action, entry_id
-            )
+            _LOGGER.debug("ignoring action %s: no coordinator for %s", action, entry_id)
             return
         coordinator = entry_data["coordinator"]
         if action_name == ACTION_SNOOZE:
@@ -172,9 +216,7 @@ def _build_action_handler(hass: HomeAssistant) -> Callable:
 # -------------------- shared resolution --------------------
 
 
-def _resolve_target_entries(
-    hass: HomeAssistant, entity_ids: list[str]
-) -> set[str]:
+def _resolve_target_entries(hass: HomeAssistant, entity_ids: list[str]) -> set[str]:
     """Map a list of target entity IDs to the unique config-entry IDs they own."""
     registry = er.async_get(hass)
     domain_data = hass.data.get(DOMAIN, {})
@@ -184,8 +226,6 @@ def _resolve_target_entries(
         if entry is None or entry.config_entry_id is None:
             raise HomeAssistantError(f"unknown wake_alarm entity: {entity_id}")
         if entry.config_entry_id not in domain_data:
-            raise HomeAssistantError(
-                f"no wake_alarm coordinator for {entity_id}"
-            )
+            raise HomeAssistantError(f"no wake_alarm coordinator for {entity_id}")
         target_entry_ids.add(entry.config_entry_id)
     return target_entry_ids

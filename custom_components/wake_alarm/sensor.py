@@ -1,4 +1,5 @@
 """Wake Alarm sensors: next_alarm timestamp, state enum, media selection."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -38,9 +39,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: WakeAlarmCoordinator = hass.data[DOMAIN][entry.entry_id][
-        "coordinator"
-    ]
+    coordinator: WakeAlarmCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities(
         [
             WakeAlarmNextAlarmSensor(entry, coordinator),
@@ -63,9 +62,7 @@ class _CoordinatorSensor(WakeAlarmEntity, SensorEntity):
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
-        self.async_on_remove(
-            self._coordinator.async_add_listener(self._handle_update)
-        )
+        self.async_on_remove(self._coordinator.async_add_listener(self._handle_update))
 
     @callback
     def _handle_update(self) -> None:
@@ -76,9 +73,7 @@ class WakeAlarmNextAlarmSensor(_CoordinatorSensor):
     _attr_translation_key = "next_alarm"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
 
-    def __init__(
-        self, entry: ConfigEntry, coordinator: WakeAlarmCoordinator
-    ) -> None:
+    def __init__(self, entry: ConfigEntry, coordinator: WakeAlarmCoordinator) -> None:
         super().__init__(entry, coordinator, key="next_alarm")
 
     @property
@@ -98,6 +93,7 @@ class WakeAlarmNextAlarmSensor(_CoordinatorSensor):
         """
         data = self._entry.data
         return {
+            **self._coordinator.schedule_attributes,
             "instance_name": data.get(CONF_NAME, ""),
             "light_entities": list(data.get(CONF_LIGHT_ENTITIES, []) or []),
             "media_player_entities": list(
@@ -113,9 +109,7 @@ class WakeAlarmStateSensor(_CoordinatorSensor):
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = [STATE_IDLE, STATE_RAMPING, STATE_PLAYING, STATE_SNOOZING]
 
-    def __init__(
-        self, entry: ConfigEntry, coordinator: WakeAlarmCoordinator
-    ) -> None:
+    def __init__(self, entry: ConfigEntry, coordinator: WakeAlarmCoordinator) -> None:
         super().__init__(entry, coordinator, key="state")
 
     @property
@@ -144,9 +138,7 @@ class WakeAlarmMediaSelectionSensor(WakeAlarmEntity, SensorEntity, RestoreEntity
 
     _attr_translation_key = "media_selection"
 
-    def __init__(
-        self, entry: ConfigEntry, coordinator: WakeAlarmCoordinator
-    ) -> None:
+    def __init__(self, entry: ConfigEntry, coordinator: WakeAlarmCoordinator) -> None:
         super().__init__(entry, key="media_selection", platform="sensor")
         self._coordinator = coordinator
         self._title: str | None = None

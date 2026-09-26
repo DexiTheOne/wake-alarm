@@ -29,14 +29,16 @@ from homeassistant.core import (
     HomeAssistant,
     callback,
 )
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import (
     async_call_later,
     async_track_point_in_time,
     async_track_state_change_event,
 )
+from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from ._pure import ScheduleDecision, compute_next_fire, plan_schedule
+from ._pure import ScheduleDecision, plan_daily_schedule
 from .const import (
     CATCHUP_GRACE_MIN,
     CONF_AFTER_SCRIPT,
@@ -82,6 +84,12 @@ class WakeAlarmCoordinator:
         self._state: str = STATE_IDLE
         self._next_fire: datetime | None = None
         self._next_ramp_start: datetime | None = None
+        self._schedule_store = Store(hass, 1, f"wake_alarm.schedule.{entry.entry_id}")
+        self._override: dict | None = None
+        self._day_overrides: dict[int, dict] = {}
+        self._consumed_date: str | None = None
+        self._active_occurrence_date: str | None = None
+        self._schedule_lock = asyncio.Lock()
 
         # Two independent timers: the light ramp is armed at ramp_start, the
         # authoritative wake-up (music) at alarm_time. Decoupling them means a
@@ -190,6 +198,8 @@ class WakeAlarmCoordinator:
             "recompute_pending": self._recompute_pending,
             "unloading": self._unloading,
             "next_fire": _iso(self._next_fire),
+            "adjustment": self._override,
+            "consumed_date": self._consumed_date,
             "next_ramp_start": _iso(self._next_ramp_start),
             "snooze_finishes_at": _iso(self._snooze_finishes_at),
             "auto_dismiss_deadline": _iso(self._auto_dismiss_deadline),
@@ -249,6 +259,28 @@ class WakeAlarmCoordinator:
 
     async def async_setup(self) -> None:
         """Subscribe to dependency state changes and compute the initial schedule."""
+        saved = await self._schedule_store.async_load() or {}
+        self._consumed_date = saved.get("consumed_date")
+        for key, value in saved.get("day_overrides", {}).items():
+            if (
+                str(key).isdigit()
+                and int(key) in range(7)
+                and isinstance(value, dict)
+                and isinstance(value.get("enabled"), bool)
+                and isinstance(value.get("date"), str)
+            ):
+                self._day_overrides[int(key)] = value
+        raw = saved.get("override")
+        if isinstance(raw, dict):
+            try:
+                adjusted = dt_util.parse_datetime(raw["adjusted"])
+                original = dt_util.parse_datetime(raw["original"])
+                if adjusted and original and adjusted.tzinfo and original.tzinfo:
+                    self._override = raw
+            except (KeyError, TypeError, ValueError):
+                _LOGGER.warning(
+                    "Ignoring invalid saved alarm adjustment for %s", self.slug
+                )
         watched: list[str] = [
             f"switch.{self.slug}_enabled",
             f"time.{self.slug}_alarm_time",
@@ -411,41 +443,184 @@ class WakeAlarmCoordinator:
             return None
         day_times = self._read_day_times(alarm_time)
         enabled_days = self._read_enabled_days()
-        if not enabled_days:
+        if not enabled_days and not self._day_overrides:
             return None
         length_min = int(self.read_number("length_min", DEFAULT_LENGTH_MIN))
         now = dt_util.now()
 
-        if catch_up and not skip_today:
-            return plan_schedule(
-                now, alarm_time, enabled_days, length_min, CATCHUP_GRACE_MIN, day_times
+        adjusted = None
+        if self._override:
+            adjusted = dt_util.as_local(
+                dt_util.parse_datetime(self._override["adjusted"])
             )
-
-        # Normal arm / post-fire roll-forward / dismiss: the next strictly
-        # future occurrence, never catching up a missed alarm (catch-up only
-        # makes sense at startup). For skip_today we advance the anchor to
-        # today's alarm_time so compute_next_fire rolls past today even when
-        # called before it (dismiss during the ramp).
-        anchor = now
-        if skip_today:
-            alarm_time = day_times.get(now.weekday(), alarm_time)
-            today_at = now.replace(
-                hour=alarm_time.hour,
-                minute=alarm_time.minute,
-                second=alarm_time.second,
-                microsecond=0,
-            )
-            anchor = max(now, today_at)
-        future = compute_next_fire(anchor, alarm_time, enabled_days, day_times)
-        if future is None:
-            return None
-        ramp_start = future - timedelta(minutes=length_min)
-        return ScheduleDecision(
-            next_fire=future,
-            ramp_start=ramp_start,
-            fire_now=False,
-            inside_ramp_window=ramp_start <= now < future,
+        decision = plan_daily_schedule(
+            now,
+            alarm_time,
+            enabled_days,
+            day_times,
+            length_min,
+            CATCHUP_GRACE_MIN if catch_up and not skip_today else 0,
+            override=adjusted,
+            consumed_date=self._consumed_date,
+            skip_date=now.date().isoformat() if skip_today else None,
+            day_overrides=self._day_overrides,
         )
+        return decision if decision.next_fire else None
+
+    @property
+    def schedule_attributes(self) -> dict:
+        next_fire = self._next_fire
+        attrs = {
+            "timezone": self.hass.config.time_zone,
+            "next_alarm_time": next_fire.strftime("%H:%M:%S") if next_fire else None,
+            "next_alarm_date": next_fire.date().isoformat() if next_fire else None,
+            "adjusted": False,
+            "day_status": self._day_status(),
+        }
+        if self._override and next_fire:
+            adjusted = dt_util.parse_datetime(self._override["adjusted"])
+            original = dt_util.as_local(
+                dt_util.parse_datetime(self._override["original"])
+            )
+            if adjusted == next_fire:
+                attrs.update(
+                    adjusted=True,
+                    adjusted_from=original.strftime("%H:%M"),
+                    adjusted_time=next_fire.strftime("%H:%M"),
+                    adjustment_direction="earlier" if adjusted < original else "later",
+                )
+        return attrs
+
+    def _next_weekday_date(self, idx: int) -> str:
+        now = dt_util.now()
+        day = now.date() + timedelta(days=(idx - now.weekday()) % 7)
+        fallback = self._read_alarm_time() or dt_time(7)
+        value = self._read_day_times(fallback)[idx]
+        candidate = datetime.combine(day, value, tzinfo=now.tzinfo)
+        if self._override:
+            adjusted = dt_util.as_local(
+                dt_util.parse_datetime(self._override["adjusted"])
+            )
+            if adjusted.date() == day:
+                candidate = adjusted
+        if dt_util.as_utc(candidate) <= dt_util.utcnow() or (
+            self._consumed_date and day.isoformat() <= self._consumed_date
+        ):
+            day += timedelta(days=7)
+        return day.isoformat()
+
+    def _day_status(self) -> dict:
+        enabled = self._read_enabled_days()
+        result = {}
+        for idx, key in enumerate(DAYS):
+            date = self._next_weekday_date(idx)
+            exception = self._day_overrides.get(idx)
+            result[key.split("_")[-1]] = {
+                "enabled": idx in enabled,
+                "override": exception["enabled"]
+                if exception and exception["date"] == date
+                else None,
+                "date": date,
+            }
+        return result
+
+    async def async_toggle_day_once(self, day: str) -> None:
+        async with self._schedule_lock:
+            idx = [key.split("_")[-1] for key in DAYS].index(day)
+            status = self._day_status()[day]
+            if status["override"] is not None:
+                self._day_overrides.pop(idx, None)
+            else:
+                self._day_overrides[idx] = {
+                    "date": status["date"],
+                    "enabled": not status["enabled"],
+                }
+            await self._save_schedule()
+            if (
+                self._cycle_active
+                and self._active_occurrence_date == status["date"]
+                and not self._day_overrides.get(idx, {}).get(
+                    "enabled", status["enabled"]
+                )
+            ):
+                await self.async_cancel_ramp()
+                self._abandon_cycle()
+            self.async_recompute_schedule()
+
+    async def _save_schedule(self) -> None:
+        await self._schedule_store.async_save(
+            {
+                "override": self._override,
+                "consumed_date": self._consumed_date,
+                "day_overrides": self._day_overrides,
+            }
+        )
+
+    async def async_adjust_next_alarm(
+        self, value: dt_time, expected_date: str | None = None
+    ) -> None:
+        async with self._schedule_lock:
+            if self._state in (STATE_PLAYING, STATE_SNOOZING):
+                raise HomeAssistantError(
+                    "Dismiss the active alarm before adjusting the next one"
+                )
+            target = self._next_fire
+            if target is None:
+                raise HomeAssistantError(
+                    "Enable an alarm day before adjusting its next time"
+                )
+            if expected_date and expected_date != target.date().isoformat():
+                raise HomeAssistantError(
+                    "The next alarm changed; refresh the card and try again"
+                )
+            adjusted = target.replace(
+                hour=value.hour, minute=value.minute, second=value.second, microsecond=0
+            )
+            adjusted = dt_util.as_local(dt_util.as_utc(adjusted))
+            if dt_util.as_utc(adjusted) <= dt_util.utcnow():
+                raise HomeAssistantError("Choose a future time on the next alarm day")
+            previous = self._override
+            original = target.isoformat()
+            if (
+                previous
+                and dt_util.as_local(
+                    dt_util.parse_datetime(previous["adjusted"])
+                ).date()
+                == target.date()
+            ):
+                original = previous["original"]
+            self._override = {"original": original, "adjusted": adjusted.isoformat()}
+            try:
+                await self._save_schedule()
+            except Exception:
+                self._override = previous
+                raise
+            self.async_recompute_schedule()
+
+    async def async_clear_adjustment(self) -> None:
+        async with self._schedule_lock:
+            self._override = None
+            await self._save_schedule()
+            self.async_recompute_schedule()
+
+    async def _consume_occurrence(self, date: str) -> None:
+        self._consumed_date = date
+        if self._override:
+            adjusted = dt_util.as_local(
+                dt_util.parse_datetime(self._override["adjusted"])
+            )
+            if adjusted.date().isoformat() <= date:
+                self._override = None
+        self._day_overrides = {
+            idx: value
+            for idx, value in self._day_overrides.items()
+            if value["date"] > date
+        }
+        try:
+            await self._save_schedule()
+        except Exception:
+            # A disk error must never silence the music phase.
+            _LOGGER.exception("Could not persist consumed alarm for %s", self.slug)
 
     def _presence_ok(self) -> bool:
         """True when no person is configured, or the configured person is home."""
@@ -504,6 +679,9 @@ class WakeAlarmCoordinator:
         if not self._gate_ok(what="light ramp"):
             return
         _LOGGER.debug("%s: ramp-start firing", self.slug)
+        self._active_occurrence_date = (
+            self._next_fire.date().isoformat() if self._next_fire else None
+        )
         self._start_cycle()
         await self._async_start_ramp(end_state=STATE_IDLE)
 
@@ -518,7 +696,13 @@ class WakeAlarmCoordinator:
         enabled day and the old mid-cycle re-selection loop cannot occur.
         """
         self._cancel_alarm_schedule = None
+        occurrence = dt_util.as_local(_now).date().isoformat()
+        if self._consumed_date and occurrence <= self._consumed_date:
+            self.async_recompute_schedule()
+            return
+        self._active_occurrence_date = occurrence
         try:
+            await self._consume_occurrence(occurrence)
             if not self._read_enabled():
                 self._abandon_cycle()
                 return
@@ -835,6 +1019,10 @@ class WakeAlarmCoordinator:
         if self._state == STATE_IDLE:
             _LOGGER.debug("dismiss for %s: already idle", self.slug)
             return
+
+        occurrence = self._active_occurrence_date or dt_util.now().date().isoformat()
+        await self._consume_occurrence(occurrence)
+        self._active_occurrence_date = None
 
         players = list(self.entry.data.get(CONF_MEDIA_PLAYER_ENTITIES) or [])
         if players:

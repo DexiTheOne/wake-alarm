@@ -4,6 +4,7 @@ import { sharedStyles } from "./styles";
 import { showsMediaControls } from "./view-logic";
 import "./media-browser";
 import "./media-thumb";
+import { DAYS } from "./types";
 import type { HomeAssistant, MediaPickedItem, RelatedEntities } from "./types";
 
 interface NumberSpec {
@@ -87,6 +88,11 @@ export class WakeAlarmSettingsView extends LitElement {
     );
   }
 
+  private _setDailyTime(entityId: string, event: Event): void {
+    const time = (event.target as HTMLInputElement).value;
+    if (time && this.hass) void this.hass.callService("time", "set_value", {entity_id:entityId,time:`${time}:00`});
+  }
+
   protected render(): TemplateResult {
     if (!this.hass || !this.related) return html``;
     const r = this.related;
@@ -112,6 +118,18 @@ export class WakeAlarmSettingsView extends LitElement {
         </div>
 
         <div class="section">
+          <h3>Recurring weekly schedule</h3>
+          <p>Saved times and day switches. Main-card changes apply once.</p>
+          <label>Set every day <input type="time"
+            .value=${this.hass!.states[r.alarmTime]?.state.slice(0, 5) ?? "07:00"}
+            @change=${(event: Event) => this._setDailyTime(r.alarmTime, event)} /></label>
+          ${DAYS.map((day) => html`<div style="display:flex;align-items:center;gap:12px;padding:8px 0">
+            <ha-switch .checked=${this.hass!.states[r.days[day]]?.state === "on"}
+              @change=${() => this.hass!.callService("switch", "toggle", {entity_id:r.days[day]})}></ha-switch>
+            <label style="flex:1">${day.charAt(0).toUpperCase() + day.slice(1)}
+              <input type="time" .value=${this.hass!.states[r.dayTimes?.[day] ?? r.alarmTime]?.state.slice(0,5) ?? "07:00"}
+                @change=${(event: Event) => this._setDailyTime(r.dayTimes?.[day] ?? r.alarmTime, event)} /></label>
+          </div>`)}
           ${SLIDERS.map((s) => this._renderSlider(s))}
         </div>
 
