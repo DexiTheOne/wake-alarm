@@ -119,6 +119,7 @@ async def test_duplicate_alarm_callback_does_not_repeat_music(env, freezer):
     freezer.move_to(at(5))
     coord = await env.build(env.make_entry(), days={5})
     freezer.move_to(at(7))
+    coord._cancel_scheduled_timers()
     await coord._async_on_alarm(at(7))
     await env.hass.async_block_till_done()
     await coord._async_on_alarm(at(7))

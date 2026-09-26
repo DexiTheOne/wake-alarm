@@ -366,7 +366,11 @@ class WakeAlarmCoordinator:
 
     @callback
     def async_recompute_schedule(
-        self, *, catch_up: bool = False, skip_today: bool = False
+        self,
+        *,
+        catch_up: bool = False,
+        skip_today: bool = False,
+        start_ramp_now: bool = False,
     ) -> None:
         """(Re)compute the next fire and (re)arm both independent timers.
 
@@ -427,7 +431,8 @@ class WakeAlarmCoordinator:
                     self.hass, self._async_on_ramp_start, decision.ramp_start
                 )
             if (
-                decision.inside_ramp_window
+                start_ramp_now
+                and decision.inside_ramp_window
                 and not self._cycle_active
                 and self._state == STATE_IDLE
             ):
@@ -556,7 +561,7 @@ class WakeAlarmCoordinator:
             ):
                 await self.async_cancel_ramp()
                 self._abandon_cycle()
-            self.async_recompute_schedule()
+            self.async_recompute_schedule(start_ramp_now=True)
 
     async def _save_schedule(self) -> None:
         await self._schedule_store.async_save(
@@ -606,7 +611,7 @@ class WakeAlarmCoordinator:
             except Exception:
                 self._override = previous
                 raise
-            self.async_recompute_schedule()
+            self.async_recompute_schedule(start_ramp_now=True)
 
     async def async_clear_adjustment(self) -> None:
         async with self._schedule_lock:
@@ -617,7 +622,7 @@ class WakeAlarmCoordinator:
             except Exception:
                 self._override = previous
                 raise
-            self.async_recompute_schedule()
+            self.async_recompute_schedule(start_ramp_now=True)
 
     async def _consume_occurrence(self, date: str) -> None:
         self._consumed_date = date
