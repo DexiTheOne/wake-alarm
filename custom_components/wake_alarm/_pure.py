@@ -124,11 +124,11 @@ def plan_schedule(
         return ScheduleDecision(None, None, False, False)
 
     length = timedelta(minutes=length_min)
-    alarm_time = (day_times or {}).get(now.weekday(), alarm_time)
+    today_time = (day_times or {}).get(now.weekday(), alarm_time)
     today_at = now.replace(
-        hour=alarm_time.hour,
-        minute=alarm_time.minute,
-        second=alarm_time.second,
+        hour=today_time.hour,
+        minute=today_time.minute,
+        second=today_time.second,
         microsecond=0,
     )
 

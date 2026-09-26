@@ -14,6 +14,7 @@ cores where the integration's config flow can't be imported at all. The #19/#20
 regressions themselves are gated by ``test_card_registration.py``, which runs on
 every supported core.
 """
+
 from __future__ import annotations
 
 import homeassistant.config_entries as _config_entries
@@ -27,6 +28,7 @@ from custom_components.wake_alarm.const import (
     CONF_NOTIFY_TARGET_STANDARD,
     CONF_NOTIFY_TARGET_URGENT,
     CONF_SLUG,
+    DAYS,
     DOMAIN,
 )
 
@@ -63,6 +65,30 @@ async def test_full_entry_setup_and_unload(hass, card_frontend) -> None:
     assert coordinator is not None
     # The enable switch should have been created by the switch platform.
     assert hass.states.get("switch.smoke_enabled") is not None
+
+    # The common control sets all days; a daily control preserves its siblings.
+    await hass.services.async_call(
+        "switch", "turn_off", {"entity_id": "switch.smoke_enabled"}, blocking=True
+    )
+    for day in DAYS:
+        assert hass.states.get(f"time.smoke_alarm_time_{day}").state == "07:00:00"
+    await hass.services.async_call(
+        "time",
+        "set_value",
+        {"entity_id": "time.smoke_alarm_time", "time": "08:40:00"},
+        blocking=True,
+    )
+    for day in DAYS:
+        assert hass.states.get(f"time.smoke_alarm_time_{day}").state == "08:40:00"
+    await hass.services.async_call(
+        "time",
+        "set_value",
+        {"entity_id": "time.smoke_alarm_time_d1_mon", "time": "06:30:00"},
+        blocking=True,
+    )
+    assert hass.states.get("time.smoke_alarm_time_d1_mon").state == "06:30:00"
+    assert hass.states.get("time.smoke_alarm_time_d2_tue").state == "08:40:00"
+    assert hass.states.get("time.smoke_alarm_time").state == "08:40:00"
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
