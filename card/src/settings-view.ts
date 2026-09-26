@@ -89,11 +89,6 @@ export class WakeAlarmSettingsView extends LitElement {
     );
   }
 
-  private _setDailyTime(entityId: string, event: Event): void {
-    const time = (event.target as HTMLInputElement).value;
-    if (time && this.hass) void this.hass.callService("time", "set_value", {entity_id:entityId,time:`${time}:00`});
-  }
-
   protected render(): TemplateResult {
     if (!this.hass || !this.related) return html``;
     const r = this.related;
@@ -120,17 +115,16 @@ export class WakeAlarmSettingsView extends LitElement {
 
         <div class="section">
           <h3>Recurring weekly schedule</h3>
-          <p>Saved times and day switches. Main-card changes apply once.</p>
-          <label>Set every day <input type="time"
-            .value=${this.hass!.states[r.alarmTime]?.state.slice(0, 5) ?? "07:00"}
-            @change=${(event: Event) => this._setDailyTime(r.alarmTime, event)} /></label>
-          ${DAYS.map((day) => html`<div style="display:flex;align-items:center;gap:12px;padding:8px 0">
-            <ha-switch .checked=${this.hass!.states[r.days[day]]?.state === "on"}
-              @change=${() => this.hass!.callService("switch", "toggle", {entity_id:r.days[day]})}></ha-switch>
-            <label style="flex:1">${day.charAt(0).toUpperCase() + day.slice(1)}
-              <input type="time" .value=${this.hass!.states[r.dayTimes?.[day] ?? r.alarmTime]?.state.slice(0,5) ?? "07:00"}
-                @change=${(event: Event) => this._setDailyTime(r.dayTimes?.[day] ?? r.alarmTime, event)} /></label>
+          <p>Saved daily settings are read-only here. Card schedule changes apply once.</p>
+          ${DAYS.map((day) => html`<div class="saved-day">
+            <span>${day.charAt(0).toUpperCase() + day.slice(1)}</span>
+            <span>${this.hass!.states[r.dayTimes?.[day] ?? r.alarmTime]?.state.slice(0,5) ?? "--:--"}</span>
+            <span>${this.hass!.states[r.days[day]]?.state === "on" ? "On" : "Off"}</span>
           </div>`)}
+        </div>
+
+        <div class="section">
+          <h3>Alarm settings</h3>
           ${SLIDERS.map((s) => this._renderSlider(s))}
         </div>
 
@@ -376,6 +370,7 @@ export class WakeAlarmSettingsView extends LitElement {
   static styles = [
     sharedStyles,
     css`
+      .saved-day { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; font-variant-numeric: tabular-nums; }
       .section {
         display: flex;
         flex-direction: column;

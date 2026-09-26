@@ -33,9 +33,16 @@ export function alarmStatusLabel(iso: string, attrs: Record<string, unknown>): s
 export function alarmBarStatus(enabled: boolean, attrs: Record<string, unknown>): {label: string; color: string} {
   if (!enabled) return {label: "Off", color: "red"};
   const days = Object.values((attrs.day_status ?? {}) as Record<string, {date: string; enabled: boolean; override: boolean | null}>);
-  const nearest = days.filter((day) => day.date).sort((a, b) => a.date.localeCompare(b.date))[0];
+  const nearest = days.filter((day) => day.date && (day.enabled || day.override !== null)).sort((a, b) => a.date.localeCompare(b.date))[0];
   if (nearest?.override === false) return {label: "One Time Off", color: "grey"};
   if (nearest?.override === true) return {label: "One Time On", color: "blue"};
   if (attrs.adjusted === true && attrs.adjusted_from !== attrs.adjusted_time) return {label: "On", color: "blue"};
   return {label: "On", color: attrs.next_alarm_date ? "green" : "grey"};
+}
+
+/** Target a skipped one-time occurrence first, otherwise the next enabled day. */
+export function nextAlarmDay(attrs: Record<string, unknown>): string | undefined {
+  const days = Object.entries((attrs.day_status ?? {}) as Record<string, {date: string; enabled: boolean; override: boolean | null}>);
+  const candidates = days.filter(([, day]) => day.date && (day.enabled || day.override !== null));
+  return (candidates.length ? candidates : days).sort(([, a], [, b]) => a.date.localeCompare(b.date))[0]?.[0];
 }

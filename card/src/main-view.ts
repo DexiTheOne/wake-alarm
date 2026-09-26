@@ -1,7 +1,7 @@
 import { customElement } from "./register-element";
 import { LitElement, css, html, type TemplateResult } from "lit";
 import { property } from "lit/decorators.js";
-import { alarmStatusLabel, alarmBarStatus } from "./view-logic";
+import { alarmStatusLabel, alarmBarStatus, nextAlarmDay } from "./view-logic";
 import { sharedStyles } from "./styles";
 import { DAYS, type DayKey, type HomeAssistant, type RelatedEntities } from "./types";
 
@@ -97,7 +97,7 @@ export class WakeAlarmMainView extends LitElement {
           <ha-icon icon=${modeIcon}></ha-icon>
           <div class="mode-text">
             <div class="mode-label">${modeLabel}</div>
-            <div class="mode-next">${isEnabled ? nextLabel : "Tap to enable"}</div>
+            <div class="mode-next">${isEnabled ? nextLabel : "Enable globally in HA settings"}</div>
           </div>
         </div>
 
@@ -195,11 +195,6 @@ export class WakeAlarmMainView extends LitElement {
     return name && name.trim() ? name : "Wake Alarm";
   }
 
-  private _toggleEnabled = (): void => {
-    if (!this.hass || !this.related) return;
-    void this.hass.callService("switch", "toggle", { entity_id: this.related.enabled });
-  };
-
   private _handleModeTileClick = (): void => {
     // While the alarm is active (ramping / playing / snoozing) tapping
     // the mode tile shouldn't disarm the alarm — the user is likely
@@ -212,7 +207,8 @@ export class WakeAlarmMainView extends LitElement {
     if (this.hass.states[this.related.sensors.next_alarm]?.attributes?.adjusted === true) {
       void this._clearAdjustment();
     } else {
-      this._toggleEnabled();
+      const day = nextAlarmDay(this.hass.states[this.related.sensors.next_alarm]?.attributes ?? {});
+      if (day && DAYS.includes(day as DayKey)) this._toggleDay(day as DayKey);
     }
   };
 
