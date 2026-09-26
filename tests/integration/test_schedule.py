@@ -296,3 +296,32 @@ class TestDailyTimes:
         assert decision.inside_ramp_window
         assert decision.ramp_start.day == 28
         assert decision.next_fire.day == 29
+
+
+class TestDailyDST:
+    def test_spring_gap_ramp_is_before_actual_alarm(self, pure):
+        zone = ZoneInfo("America/New_York")
+        now = datetime(2026, 3, 8, 1, 0, tzinfo=zone)
+        decision = pure.plan_daily_schedule(now, dt_time(2, 30), {6}, {}, 15)
+        assert decision.next_fire.hour == 3
+        assert decision.next_fire.minute == 30
+        assert decision.ramp_start.astimezone(
+            timezone.utc
+        ) < decision.next_fire.astimezone(timezone.utc)
+
+    def test_spring_transition_ramp_uses_elapsed_minutes(self, pure):
+        zone = ZoneInfo("America/New_York")
+        now = datetime(2026, 3, 8, 1, 0, tzinfo=zone)
+        decision = pure.plan_daily_schedule(now, dt_time(3, 5), {6}, {}, 15)
+        assert decision.ramp_start.hour == 1
+        assert decision.ramp_start.minute == 50
+        assert (
+            decision.next_fire.astimezone(timezone.utc)
+            - decision.ramp_start.astimezone(timezone.utc)
+        ).total_seconds() == 900
+
+    def test_repeated_hour_does_not_select_past_first_fold(self, pure):
+        zone = ZoneInfo("America/New_York")
+        now = datetime(2026, 11, 1, 1, 10, tzinfo=zone, fold=1)
+        decision = pure.plan_daily_schedule(now, dt_time(1, 30), {6}, {}, 15)
+        assert decision.next_fire.day == 8

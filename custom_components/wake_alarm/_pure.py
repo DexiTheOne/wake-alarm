@@ -230,6 +230,15 @@ def plan_daily_schedule(
             offset == 0 and grace_min > 0 and delta >= -grace_min * 60
         ):
             continue
-        ramp = candidate - timedelta(minutes=length_min)
-        return ScheduleDecision(candidate, ramp, delta <= 0, ramp <= now < candidate)
+        ramp = (
+            candidate.astimezone(timezone.utc) - timedelta(minutes=length_min)
+        ).astimezone(now.tzinfo)
+        return ScheduleDecision(
+            candidate,
+            ramp,
+            delta <= 0,
+            ramp.astimezone(timezone.utc)
+            <= now.astimezone(timezone.utc)
+            < candidate.astimezone(timezone.utc),
+        )
     return ScheduleDecision(None, None, False, False)
