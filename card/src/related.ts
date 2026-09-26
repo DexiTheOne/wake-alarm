@@ -126,7 +126,7 @@ export function buildRelated(
     configEntryId,
     enabled: need("enabled"),
     active: need("active"),
-    alarmTime: need("alarm_time"),
+    alarmTime: byKey["alarm_time_d1_mon"] ?? need("alarm_time"),
     days,
     dayTimes: Object.fromEntries(Object.entries(DAY_KEY_FROM_SUFFIX).map(([suffix, day]) => [day, byKey[`alarm_time_${suffix}`]])),
     numbers,

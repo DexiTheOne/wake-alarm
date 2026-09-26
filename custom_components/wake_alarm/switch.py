@@ -12,6 +12,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import DAY_DEFS, DEFAULT_DAYS_ON
 from .entity import WakeAlarmEntity
+from .time import DAY_NAMES
 
 
 async def async_setup_entry(
@@ -70,8 +71,8 @@ class WakeAlarmDaySwitch(_RestorableSwitch):
     """Day-of-week toggle (Mon–Fri default on, Sat/Sun default off).
 
     entity_key is the d1_mon..d7_sun key embedded in the entity_id and
-    unique_id; translation_key is the short label ("mon"..."sun") that
-    strings.json maps to the user-visible "Enable Mon"..."Enable Sun".
+    unique_id. Display names pair each day toggle with its time control
+    in Monday-through-Sunday alphabetical order.
 
     entity_category=CONFIG groups the seven day toggles under HA's
     "Configuration" section on the device card, away from the master
@@ -89,4 +90,5 @@ class WakeAlarmDaySwitch(_RestorableSwitch):
         default_on: bool,
     ) -> None:
         super().__init__(entry, key=entity_key, default_on=default_on)
-        self._attr_translation_key = translation_key
+        index = int(entity_key[1]) - 1
+        self._attr_name = f"{index + 1} {DAY_NAMES[index]} 1 Enable"

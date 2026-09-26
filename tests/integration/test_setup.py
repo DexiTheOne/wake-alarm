@@ -66,7 +66,8 @@ async def test_full_entry_setup_and_unload(hass, card_frontend) -> None:
     # The enable switch should have been created by the switch platform.
     assert hass.states.get("switch.smoke_enabled") is not None
 
-    # The common control sets all days; a daily control preserves its siblings.
+    # Only daily controls exist; changing Monday preserves all siblings.
+    assert hass.states.get("time.smoke_alarm_time") is None
     await hass.services.async_call(
         "switch", "turn_off", {"entity_id": "switch.smoke_enabled"}, blocking=True
     )
@@ -75,20 +76,16 @@ async def test_full_entry_setup_and_unload(hass, card_frontend) -> None:
     await hass.services.async_call(
         "time",
         "set_value",
-        {"entity_id": "time.smoke_alarm_time", "time": "08:40:00"},
-        blocking=True,
-    )
-    for day in DAYS:
-        assert hass.states.get(f"time.smoke_alarm_time_{day}").state == "08:40:00"
-    await hass.services.async_call(
-        "time",
-        "set_value",
         {"entity_id": "time.smoke_alarm_time_d1_mon", "time": "06:30:00"},
         blocking=True,
     )
     assert hass.states.get("time.smoke_alarm_time_d1_mon").state == "06:30:00"
-    assert hass.states.get("time.smoke_alarm_time_d2_tue").state == "08:40:00"
-    assert hass.states.get("time.smoke_alarm_time").state == "08:40:00"
+    assert hass.states.get("time.smoke_alarm_time_d2_tue").state == "07:00:00"
+    assert hass.states.get("time.smoke_alarm_time") is None
+    await hass.services.async_call(
+        "switch", "turn_on", {"entity_id": "switch.smoke_enabled"}, blocking=True
+    )
+    assert coordinator._compute_schedule() is not None
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()

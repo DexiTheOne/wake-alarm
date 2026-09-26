@@ -1,3 +1,10 @@
+## 0.7.5
+
+- Remove the all-days alarm-time entity to prevent accidental schedule overwrites.
+- Restore and schedule directly from the seven independent daily times.
+- Pair daily enable and time controls in Monday-through-Sunday name order.
+- Support daily-only entity registries in the alarm card.
+
 ## 0.7.4
 
 - Lock the top bar while globally off and remove its enable instruction.
