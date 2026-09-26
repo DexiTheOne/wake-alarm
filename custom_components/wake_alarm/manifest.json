@@ -1,0 +1,19 @@
+{
+  "domain": "wake_alarm",
+  "name": "Wake Alarm",
+  "after_dependencies": [
+    "frontend",
+    "http",
+    "mobile_app"
+  ],
+  "codeowners": [
+    "@DexiTheOne"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/DexiTheOne/wake-alarm",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/DexiTheOne/wake-alarm/issues",
+  "requirements": [],
+  "version": "0.6.0"
+}

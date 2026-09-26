@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint (ruff check)
+        run: ruff check custom_components tests
+
+  python:
+    name: pytest (HA ${{ matrix.label }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Latest HA — what users actually run.
+          - label: latest
+            python-version: "3.13"
+            phacc: "0.13.316"
+            extra_pins: ""
+          # Minimum supported HA (matches the hacs.json floor, 2024.6.x).
+          # config_flow.py uses ConfigFlowResult (HA 2024.4+); 2024.6 is the
+          # oldest PHACC that installs cleanly (2024.4/2024.5 builds pin a
+          # since-removed mypy-dev alpha), so it's our tested floor.
+          # josepy<2 keeps acme importable (josepy 2.x dropped ComparableX509,
+          # which this HA's acme dependency still uses).
+          - label: min
+            python-version: "3.12"
+            phacc: "0.13.132"
+            extra_pins: '"josepy<2"'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install test deps
+        # PHACC pulls a matching homeassistant + freezegun transitively.
+        run: pip install pytest pytest-asyncio pytest-cov "pytest-homeassistant-custom-component==${{ matrix.phacc }}" ${{ matrix.extra_pins }}
+
+      - name: Run tests
+        run: pytest tests/ -v --cov --cov-report=term-missing
+
+  card:
+    name: card lint + test + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: card
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: card/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Type-check (tsc --noEmit)
+        run: npm run lint
+
+      - name: Unit tests (vitest)
+        run: npm test
+
+      - name: Build bundle
+        run: npm run build
+
+      - name: Verify committed bundle is up to date with source
+        run: |
+          git diff --exit-code ../custom_components/wake_alarm/www/wake-alarm-card.js \
+            || (echo "::error::custom_components/wake_alarm/www/wake-alarm-card.js is stale. Run 'npm run build' inside card/ and commit the result." && exit 1)

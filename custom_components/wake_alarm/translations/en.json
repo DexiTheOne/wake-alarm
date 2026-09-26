@@ -1,0 +1,189 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wake Alarm",
+        "description": "Configure a new wake-up alarm. After setup, open the card and use the media picker to choose what to play.",
+        "data": {
+          "name": "Name",
+          "light_entities": "Lights (optional)",
+          "media_player_entities": "Media players (optional)",
+          "person_entity": "Presence (optional)",
+          "condition_entity": "Condition sensor (optional)",
+          "notify_target_standard": "Standard notification target (optional)",
+          "notify_target_urgent": "Urgent notification target (optional)",
+          "notify_tap_path": "Notification tap opens (optional)",
+          "before_script": "Run script before the alarm (optional)",
+          "at_alarm_script": "Run script at alarm time (optional)",
+          "after_script": "Run script after the alarm (optional)"
+        },
+        "data_description": {
+          "name": "Friendly name for this alarm — used as a prefix for every entity ID. Cannot be changed after setup.",
+          "light_entities": "Lights that ramp from warm + dim to cool + bright before the alarm time. Optional — leave blank for a music-only alarm.",
+          "media_player_entities": "Speakers to play music on at alarm time. Optional — leave blank for a lights-only sunrise alarm. To pick more than one, they must all come from the same integration AND support synchronised group playback (e.g. multiple Sonos speakers). At least one light or media player is required.",
+          "condition_entity": "If set, the alarm fires only while this binary sensor is on — e.g. a bed sensor (only when you're in bed) or Home Assistant's Workday sensor (skip bank holidays). Checked alongside presence; both must pass.",
+          "person_entity": "If set, the alarm fires only when this person is home. Leave blank to fire regardless.",
+          "notify_target_standard": "Mobile notification at alarm time, with Snooze and Dismiss buttons. Leave blank for no notification.",
+          "notify_target_urgent": "Critical notification when speakers are unavailable or no media has been picked. Set to a different channel for a distinct sound.",
+          "notify_tap_path": "Optional. Tapping the notification opens this dashboard path (e.g. lovelace/0 or wake-alarm). Leave blank to do nothing. Snooze and Dismiss are always available by long-pressing the notification.",
+          "before_script": "Runs once when the wake-up sequence begins — at the light-ramp start, i.e. 'Length' minutes before the alarm time. Same moment even for a music-only alarm (no lights, but the sequence still starts then); it only lands on the alarm time after a restart catch-up. Fired non-blocking, so a slow or failing script never delays the alarm. The instance slug and name are passed as script variables.",
+          "at_alarm_script": "Runs once exactly at the alarm time — the moment the music starts (or, for a lights-only alarm, when the alarm fires). Skipped if the alarm is gated off by presence/condition. Fired non-blocking; the instance slug and name are passed as script variables.",
+          "after_script": "Runs once when the wake-up ends: a dismiss or an auto-dismiss. A lights-only alarm (no music) runs it at the alarm time. Not run on snooze. Fired non-blocking; the slug and name are passed as variables."
+        }
+      }
+    },
+    "error": {
+      "invalid_name": "Name must contain at least one alphanumeric character.",
+      "required": "This field is required.",
+      "need_light_or_media": "Select at least one light or media player.",
+      "no_grouping_support": "These media players don't support synchronised group playback: {players}",
+      "mixed_platforms": "Selected media players come from different integrations: {platforms}. Pick players from one integration only.",
+      "media_player_unavailable": "These media players are unavailable: {players}"
+    },
+    "abort": {
+      "already_configured": "An alarm with this name already exists."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Wake Alarm settings",
+        "description": "Edit this alarm's targets and notifications. The instance name cannot be changed after creation. Media is picked via the card.",
+        "data": {
+          "light_entities": "Lights (optional)",
+          "media_player_entities": "Media players (optional)",
+          "person_entity": "Presence (optional)",
+          "condition_entity": "Condition sensor (optional)",
+          "notify_target_standard": "Standard notification target (optional)",
+          "notify_target_urgent": "Urgent notification target (optional)",
+          "notify_tap_path": "Notification tap opens (optional)",
+          "before_script": "Run script before the alarm (optional)",
+          "at_alarm_script": "Run script at alarm time (optional)",
+          "after_script": "Run script after the alarm (optional)"
+        },
+        "data_description": {
+          "light_entities": "Lights that ramp before the alarm time. Leave blank for a music-only alarm.",
+          "media_player_entities": "Speakers for music. Leave blank for a lights-only alarm. Multi-select requires the same integration AND group-playback support. At least one light or media player is required.",
+          "person_entity": "Skip the alarm when this person isn't home. Leave blank to fire regardless.",
+          "condition_entity": "Skip the alarm unless this binary sensor is on (e.g. a bed sensor or the Workday sensor). ANDed with presence; leave blank to ignore.",
+          "notify_target_standard": "Mobile notification at alarm time.",
+          "notify_target_urgent": "Mobile notification when speakers are unavailable or no media has been picked.",
+          "notify_tap_path": "Optional. Tapping the notification opens this dashboard path (e.g. lovelace/0 or wake-alarm). Leave blank to do nothing. Snooze and Dismiss are always available by long-pressing the notification.",
+          "before_script": "Runs (non-blocking) when the wake-up sequence begins — at the light-ramp start, i.e. 'Length' minutes before the alarm time (same moment even for a music-only alarm). Slug and name are passed as variables.",
+          "at_alarm_script": "Runs (non-blocking) exactly at the alarm time — when the music starts (or the alarm fires for a lights-only alarm). Skipped if gated off by presence/condition. Slug and name are passed as variables.",
+          "after_script": "Runs (non-blocking) when the wake-up ends: a dismiss or an auto-dismiss (a lights-only alarm ends at the alarm time). Not run on snooze."
+        }
+      }
+    },
+    "error": {
+      "required": "This field is required.",
+      "need_light_or_media": "Select at least one light or media player.",
+      "no_grouping_support": "These media players don't support synchronised group playback: {players}",
+      "mixed_platforms": "Selected media players come from different integrations: {platforms}",
+      "media_player_unavailable": "These media players are unavailable: {players}"
+    }
+  },
+  "entity": {
+    "switch": {
+      "enabled": { "name": "Enabled" },
+      "mon": { "name": "Enable Mon" },
+      "tue": { "name": "Enable Tue" },
+      "wed": { "name": "Enable Wed" },
+      "thu": { "name": "Enable Thu" },
+      "fri": { "name": "Enable Fri" },
+      "sat": { "name": "Enable Sat" },
+      "sun": { "name": "Enable Sun" }
+    },
+    "time": {
+      "alarm_time": { "name": "Alarm Time" }
+    },
+    "number": {
+      "length_min": { "name": "Length" },
+      "start_kelvin": { "name": "Start temperature" },
+      "target_kelvin": { "name": "Target temperature" },
+      "max_brightness_pct": { "name": "Max brightness" },
+      "volume": { "name": "Volume" },
+      "snooze_min": { "name": "Snooze" },
+      "steps_per_min": { "name": "Steps per minute" },
+      "music_fade_sec": { "name": "Music fade" },
+      "auto_dismiss_min": { "name": "Auto dismiss" }
+    },
+    "sensor": {
+      "next_alarm": { "name": "Next Alarm" },
+      "state": {
+        "name": "State",
+        "state": {
+          "idle": "Idle",
+          "ramping": "Ramping",
+          "playing": "Playing",
+          "snoozing": "Snoozing"
+        }
+      },
+      "media_selection": { "name": "Media selection" }
+    },
+    "binary_sensor": {
+      "active": { "name": "Active" }
+    },
+    "button": {
+      "test_light_ramp": { "name": "Test light ramp" },
+      "cancel_ramp": { "name": "Cancel ramp" },
+      "test_music": { "name": "Test music" },
+      "test_standard_notification": { "name": "Test standard notification" },
+      "test_urgent_notification": { "name": "Test urgent notification" },
+      "dismiss": { "name": "Dismiss" },
+      "snooze": { "name": "Snooze" }
+    }
+  },
+  "services": {
+    "set_media": {
+      "name": "Set media",
+      "description": "Persist a media selection for a Wake Alarm instance. Called by the card after the user picks media via the browser modal.",
+      "fields": {
+        "media_content_id": {
+          "name": "Media Content ID",
+          "description": "The media_content_id returned by HA's media browser (e.g. FV:2/5 for a Sonos favourite, spotify:playlist:..., or a stream URL)."
+        },
+        "media_content_type": {
+          "name": "Media Content Type",
+          "description": "The media_content_type returned by HA's media browser (e.g. favorite_item_id, playlist, music, url)."
+        },
+        "title": {
+          "name": "Title",
+          "description": "Friendly title shown in the card and used as the sensor's state."
+        },
+        "thumbnail": {
+          "name": "Thumbnail URL",
+          "description": "Optional thumbnail URL for display in the card."
+        }
+      }
+    },
+    "snooze": {
+      "name": "Snooze",
+      "description": "Snooze the alarm. Pauses any active music, cancels the ramp, and starts a snooze timer for the configured snooze_min minutes."
+    },
+    "dismiss": {
+      "name": "Dismiss",
+      "description": "Fully dismiss the alarm. Stops music, unjoins any group, cancels every pending task or timer, and recomputes the next fire time."
+    },
+    "cancel_ramp": {
+      "name": "Cancel ramp",
+      "description": "Stop the light ramp without dismissing the alarm. Music will still play at alarm_time."
+    },
+    "test_light_ramp": {
+      "name": "Test light ramp",
+      "description": "Run the light ramp now using current settings, regardless of schedule."
+    },
+    "test_music": {
+      "name": "Test music",
+      "description": "Run the music sequence now using current settings and the selected media."
+    },
+    "test_standard_notification": {
+      "name": "Test standard notification",
+      "description": "Send the standard alarm notification now. Uses iOS active interruption level and the Android wake_alarm_standard channel."
+    },
+    "test_urgent_notification": {
+      "name": "Test urgent notification",
+      "description": "Send the urgent fallback notification now. Uses iOS critical sound + critical interruption level and the Android wake_alarm_urgent channel."
+    }
+  }
+}
