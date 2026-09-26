@@ -1,3 +1,7 @@
+## 0.7.2
+
+- Wait for Home Assistant frontend registration before importing the card and Lit. This prevents Firefox scoped-registry initialization from discarding early card registrations.
+
 ## 0.7.1
 
 - Make card registration idempotent across frontend and dashboard loaders, including partially registered child elements. Avoid duplicate Add Card entries.

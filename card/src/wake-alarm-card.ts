@@ -186,7 +186,7 @@ if (!window.customCards.some((card) => card.type === "wake-alarm-card")) window.
 
 // eslint-disable-next-line no-console
 console.info(
-  "%c WAKE-ALARM-CARD %c v0.7.1 ",
+  "%c WAKE-ALARM-CARD %c v0.7.2 ",
   "color: white; background: #ff5722; font-weight: 700;",
   "color: #ff5722; background: white; font-weight: 700;",
 );

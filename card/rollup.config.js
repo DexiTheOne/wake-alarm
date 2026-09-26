@@ -6,7 +6,7 @@ import terser from "@rollup/plugin-terser";
 export default {
   input: "src/wake-alarm-card.ts",
   output: {
-    file: "../custom_components/wake_alarm/www/wake-alarm-card.js",
+    file: "../custom_components/wake_alarm/www/wake-alarm-card-bundle.js",
     format: "es",
     sourcemap: false,
     inlineDynamicImports: true,

@@ -1,11 +1,11 @@
 {
   "name": "wake-alarm-card",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Lovelace card for the Wake Alarm Home Assistant integration.",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "rollup -c",
+    "build": "rollup -c && cp loader.js ../custom_components/wake_alarm/www/wake-alarm-card.js",
     "build:watch": "rollup -c --watch",
     "lint": "tsc --noEmit",
     "test": "vitest run"

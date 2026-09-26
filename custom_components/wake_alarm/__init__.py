@@ -27,6 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 # bundle as a static path at this URL and tells the frontend to load it.
 _CARD_PATH_PART = "/wake_alarm/wake-alarm-card.js"
 _CARD_PATH = Path(__file__).parent / "www" / "wake-alarm-card.js"
+_CARD_BUNDLE_PATH = _CARD_PATH.with_name("wake-alarm-card-bundle.js")
 
 # Bookkeeping key inside hass.data[DOMAIN]; underscore-prefixed so the
 # entry-id lookup ignores it.
@@ -181,7 +182,9 @@ async def _async_register_card(hass: HomeAssistant) -> None:
         # is_file() is a stat() — run it off the event loop rather than blocking
         # it (same class of issue as the #20 manifest open(); #37). Must come
         # after the flag claim above to keep that claim await-free (#19).
-        if not await hass.async_add_executor_job(_CARD_PATH.is_file):
+        if not await hass.async_add_executor_job(
+            lambda: _CARD_PATH.is_file() and _CARD_BUNDLE_PATH.is_file()
+        ):
             _LOGGER.warning(
                 "card bundle missing at %s; skipping resource registration",
                 _CARD_PATH,
@@ -195,10 +198,20 @@ async def _async_register_card(hass: HomeAssistant) -> None:
             from homeassistant.components.http import StaticPathConfig
 
             await hass.http.async_register_static_paths(
-                [StaticPathConfig(_CARD_PATH_PART, str(_CARD_PATH), True)]
+                [
+                    StaticPathConfig(_CARD_PATH_PART, str(_CARD_PATH), True),
+                    StaticPathConfig(
+                        "/wake_alarm/wake-alarm-card-bundle.js",
+                        str(_CARD_BUNDLE_PATH),
+                        True,
+                    ),
+                ]
             )
         else:
             hass.http.register_static_path(_CARD_PATH_PART, str(_CARD_PATH), True)
+            hass.http.register_static_path(
+                "/wake_alarm/wake-alarm-card-bundle.js", str(_CARD_BUNDLE_PATH), True
+            )
 
         version = await _async_card_version(hass)
         versioned_url = f"{_CARD_PATH_PART}?v={version}"
