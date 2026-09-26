@@ -71,8 +71,8 @@ class WakeAlarmDaySwitch(_RestorableSwitch):
     """Day-of-week toggle (Mon–Fri default on, Sat/Sun default off).
 
     entity_key is the d1_mon..d7_sun key embedded in the entity_id and
-    unique_id; translation_key is the short label ("mon"..."sun") that
-    strings.json maps to the user-visible "Enable Mon"..."Enable Sun".
+    unique_id. Display names pair each day toggle with its time control
+    in Monday-through-Sunday alphabetical order.
 
     entity_category=CONFIG groups the seven day toggles under HA's
     "Configuration" section on the device card, away from the master
