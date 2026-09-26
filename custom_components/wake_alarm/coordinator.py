@@ -493,10 +493,14 @@ class WakeAlarmCoordinator:
         fallback = self._read_alarm_time() or dt_time(7)
         saved = self._read_day_times(fallback)[idx]
         target = datetime.combine(
-            datetime.fromisoformat(status["date"]).date(), saved, tzinfo=dt_util.now().tzinfo
+            datetime.fromisoformat(status["date"]).date(),
+            saved,
+            tzinfo=dt_util.now().tzinfo
         )
         if self._override:
-            adjusted = dt_util.as_local(dt_util.parse_datetime(self._override["adjusted"]))
+            adjusted = dt_util.as_local(
+                dt_util.parse_datetime(self._override["adjusted"])
+            )
             if adjusted.date() == target.date():
                 target = adjusted
         return target
@@ -536,8 +540,12 @@ class WakeAlarmCoordinator:
             "adjusted": False,
         }
         if self._override:
-            adjusted = dt_util.as_local(dt_util.parse_datetime(self._override["adjusted"]))
-            original = dt_util.as_local(dt_util.parse_datetime(self._override["original"]))
+            adjusted = dt_util.as_local(
+                dt_util.parse_datetime(self._override["adjusted"])
+            )
+            original = dt_util.as_local(
+                dt_util.parse_datetime(self._override["original"])
+            )
             if target == adjusted and adjusted != original:
                 attrs.update(
                     adjusted=True,
@@ -627,7 +635,11 @@ class WakeAlarmCoordinator:
                 )
             target = self._next_fire
             selected = self._card_occurrence()
-            if expected_date and selected and selected.date().isoformat() == expected_date:
+            if (
+                expected_date
+                and selected
+                and selected.date().isoformat() == expected_date
+            ):
                 target = selected
             if target is None:
                 raise HomeAssistantError(
@@ -654,7 +666,8 @@ class WakeAlarmCoordinator:
             ):
                 original = previous["original"]
             self._override = (
-                None if dt_util.parse_datetime(original) == adjusted
+                None
+                if dt_util.parse_datetime(original) == adjusted
                 else {"original": original, "adjusted": adjusted.isoformat()}
             )
             try:
