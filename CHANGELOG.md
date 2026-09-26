@@ -1,3 +1,9 @@
+## 0.7.1
+
+- Make card registration idempotent across frontend and dashboard loaders, including partially registered child elements. Avoid duplicate Add Card entries.
+- Correct the browser console version label.
+- Add DOM regression checks for partial and repeated registration.
+
 # Changelog
 
 All notable changes to this project will be documented here.

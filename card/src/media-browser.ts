@@ -1,3 +1,4 @@
+import { customElement } from "./register-element";
 /**
  * Minimal media browser for the wake-alarm card.
  *
@@ -12,7 +13,7 @@
  *     user picks a playable child.
  */
 import { LitElement, css, html, type TemplateResult } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 import "./media-thumb";
 import type { HomeAssistant, MediaPickedItem } from "./types";
 

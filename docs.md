@@ -2,12 +2,12 @@
 
 ## 2026-09-26
 
-Independent daily-schedule implementation built from upstream commit 3c3fcb140458d1533daa2a26104d8aef573ea4d0, preserving the MIT license and existing integration domain, entities and service interfaces. HACS installation enabled after the user revised the initial no-HACS preference.
+Independent public repository, preserving upstream MIT licensing and existing integration identity. Version 0.7.0 installed through HACS and configuration validated. Seven daily time entities initialized from the restored common time; all original entities retained.
 
-Changes: seven persistent daily time entities; shared control sets all days; daily inputs change one day; next-alarm, ramp and startup catch-up calculations use the selected weekday time. Existing music, snooze, dismiss and auto-dismiss code retained.
+Live MCP checks passed: daily time changes affected only the selected day; a one-time time adjustment survived an integration reload; clearing it restored the recurring schedule. Past adjustments were rejected. Temporary weekday disable/enable states changed the next occurrence without changing the recurring switch and could be cleared.
 
-Validation: 31 scheduling tests pass locally; 15 card tests, type check, production build and Python lint pass. GitHub Actions run 36223088735 passes 125 integration tests on each of two HA versions, plus card and lint jobs. Relevant source/configuration was inspected through Home Assistant MCP, and a live configuration check passed. A full live backup was created before replacing any installed files.
+An isolated temporary integration demonstrated scheduled light ramp, cancellation without cancelling the alarm, scheduled muted playback, snooze pause and timed resume. Auto-dismiss and final restoration are being checked before completion.
 
-Status: built and synchronized; not deployed or live-verified yet. HACS receives GitHub 404 for the private repository. Awaiting public visibility authorization or HACS access. The existing live alarm remains unchanged.
+Version 0.7.0 passed both Home Assistant CI matrices and card tests. Version 0.7.1 adds idempotent custom-element registration after a Firefox duplicate-registration report. Card type check, production build and 19 tests pass locally, including partial and repeated registration cases. Browser visual confirmation is delegated to the user; Safari is reported working. Deployment and live readback of 0.7.1 remain pending.
 
-Rollback after deployment: uninstall this HACS download, reinstall the original integration, retain the original Home Assistant config entry and entity registry, restore the prior card resource, and restart. Local patches are preserved in the private pre-change backup. A full backup restore would require explicit user approval and the configured backup encryption key. Private deployment details and device-state snapshots are intentionally excluded from this repository.
+Rollback: reinstall the original HACS integration without deleting the existing config entry or entity registry; restore the prior resource URL and restart. A private pre-installation full backup includes the previous local Firefox patch. Full restore requires explicit approval and the configured backup encryption key. Private device settings and credentials are not published.

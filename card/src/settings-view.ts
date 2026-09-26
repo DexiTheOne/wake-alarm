@@ -1,5 +1,6 @@
+import { customElement } from "./register-element";
 import { LitElement, css, html, type PropertyValues, type TemplateResult } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 import { sharedStyles } from "./styles";
 import { showsMediaControls } from "./view-logic";
 import "./media-browser";

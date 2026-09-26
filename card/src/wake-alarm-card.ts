@@ -1,3 +1,4 @@
+import { customElement } from "./register-element";
 /**
  * Wake Alarm: Lovelace card.
  *
@@ -10,7 +11,7 @@
  * Pairs with the wake_alarm custom integration. Distributed via HACS.
  */
 import { LitElement, html, type PropertyValues, type TemplateResult } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 import { sharedStyles } from "./styles";
 import { CardConfigError, buildRelated } from "./related";
 import type {
@@ -176,7 +177,7 @@ export class WakeAlarmCard extends LitElement {
 
 // Register in HA's "Add Card" picker.
 window.customCards = window.customCards ?? [];
-window.customCards.push({
+if (!window.customCards.some((card) => card.type === "wake-alarm-card")) window.customCards.push({
   type: "wake-alarm-card",
   name: "Wake Alarm",
   description: "Wake-up alarm with a gradual light ramp and a music sequence.",
@@ -185,7 +186,7 @@ window.customCards.push({
 
 // eslint-disable-next-line no-console
 console.info(
-  "%c WAKE-ALARM-CARD %c v0.5.0 ",
+  "%c WAKE-ALARM-CARD %c v0.7.1 ",
   "color: white; background: #ff5722; font-weight: 700;",
   "color: #ff5722; background: white; font-weight: 700;",
 );

@@ -1,5 +1,6 @@
+import { customElement } from "./register-element";
 import { LitElement, css, html, type TemplateResult } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 import type { EntityRegistryEntry, HomeAssistant, WakeAlarmCardConfig } from "./types";
 
 @customElement("wake-alarm-card-editor")

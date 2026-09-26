@@ -1,5 +1,6 @@
+import { customElement } from "./register-element";
 import { LitElement, css, html, type TemplateResult } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { property } from "lit/decorators.js";
 import { alarmStatusLabel } from "./view-logic";
 import { sharedStyles } from "./styles";
 import { DAYS, type DayKey, type HomeAssistant, type RelatedEntities } from "./types";
