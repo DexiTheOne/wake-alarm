@@ -283,8 +283,8 @@ class WakeAlarmCoordinator:
                 )
         watched: list[str] = [
             f"switch.{self.slug}_enabled",
-            f"time.{self.slug}_alarm_time",
             f"number.{self.slug}_length_min",
+            f"time.{self.slug}_alarm_time",
             *(f"switch.{self.slug}_{day}" for day in DAYS),
             *(f"time.{self.slug}_alarm_time_{day}" for day in DAYS),
         ]
@@ -1450,13 +1450,17 @@ class WakeAlarmCoordinator:
         return st is not None and st.state == "on"
 
     def _read_alarm_time(self) -> dt_time | None:
-        st = self.hass.states.get(f"time.{self.slug}_alarm_time")
-        if st is None or st.state in (None, "unknown", "unavailable", ""):
-            return None
-        try:
-            return dt_time.fromisoformat(st.state)
-        except ValueError:
-            return None
+        # Daily entities are authoritative. Legacy fallback supports old fixtures
+        # and installations while their daily entities are first being restored.
+        for key in (*(f"alarm_time_{day}" for day in DAYS), "alarm_time"):
+            st = self.hass.states.get(f"time.{self.slug}_{key}")
+            if st is None:
+                continue
+            try:
+                return dt_time.fromisoformat(st.state)
+            except (TypeError, ValueError):
+                continue
+        return None
 
     def _read_day_times(self, fallback: dt_time) -> dict[int, dt_time]:
         result = {}

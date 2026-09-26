@@ -65,7 +65,7 @@ export interface RelatedEntities {
   // Top-level
   enabled: string; // switch.<slug>_enabled
   active: string; // binary_sensor.<slug>_active
-  alarmTime: string; // time.<slug>_alarm_time
+  alarmTime: string; // Daily Monday fallback (legacy common entity on older releases)
   // Day toggles
   days: Record<DayKey, string>;
   dayTimes?: Partial<Record<DayKey, string>>;

@@ -75,6 +75,16 @@ describe("buildRelated", () => {
     expect(r.sensors.media_selection).toBe("sensor.bedroom_media_selection");
   });
 
+  it("resolves daily-only installations without the removed common control", () => {
+    const daily = FULL_REGISTRY.filter(e => e.entity_id !== "time.bedroom_alarm_time");
+    for (const day of ["d1_mon", "d2_tue", "d3_wed", "d4_thu", "d5_fri", "d6_sat", "d7_sun"]) {
+      daily.push(makeEntry(`time.bedroom_alarm_time_${day}`, `${ENTRY}_alarm_time_${day}`));
+    }
+    const result = buildRelated("switch.bedroom_enabled", daily);
+    expect(result.alarmTime).toBe("time.bedroom_alarm_time_d1_mon");
+    expect(result.dayTimes.sun).toBe("time.bedroom_alarm_time_d7_sun");
+  });
+
   it("ignores entries from other config entries", () => {
     const otherEntry = "99zzzz";
     const noisy: EntityRegistryEntry[] = [

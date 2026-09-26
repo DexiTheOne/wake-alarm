@@ -12,6 +12,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import DAY_DEFS, DEFAULT_DAYS_ON
 from .entity import WakeAlarmEntity
+from .time import DAY_NAMES
 
 
 async def async_setup_entry(
@@ -89,4 +90,5 @@ class WakeAlarmDaySwitch(_RestorableSwitch):
         default_on: bool,
     ) -> None:
         super().__init__(entry, key=entity_key, default_on=default_on)
-        self._attr_translation_key = translation_key
+        index = int(entity_key[1]) - 1
+        self._attr_name = f"{index + 1} {DAY_NAMES[index]} 1 Enable"
