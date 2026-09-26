@@ -11,3 +11,12 @@ Live functional checks passed for independent daily changes, one-time adjustment
 Release 0.7.1 was deployed through HACS and read back after restart. The exact production bundle is served with JavaScript content type. The user confirmed the card displays in Safari and Firefox after the native duplicate-registration fix.
 
 Rollback: reinstall the previous release while retaining the existing integration configuration and entity registry, restore its card resource version, and restart.
+
+
+## Release 0.7.2
+
+Replaced early frontend loading with one automatically managed dashboard module resource. The resource collection API preserves the existing resource identity during upgrades. The loader waits for Home Assistant registration before importing Lit, avoiding Firefox scoped-registry replacement discarding early card registrations.
+
+Live Firefox diagnosis reproduced missing registrations after early loading and immediate recovery when importing after frontend readiness. Following HACS deployment and restart, ordinary reload and full refresh both displayed the card and its weekday times. Browser readback confirmed both card and child view registered and only the versioned loader and bundle fetched. Dashboard resource migration occurred automatically. Configuration validation and backend readback passed; existing alarm settings were preserved.
+
+CI run 36259802321 passed both Home Assistant matrices, lint, card type check, 20 card tests, and build. Metadata validation passed. Rollback to 0.7.1 is available through HACS while retaining configuration and entity registry.

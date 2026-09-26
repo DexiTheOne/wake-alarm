@@ -2,9 +2,9 @@
 
 TypeScript Lovelace card for the [Wake Alarm](../) Home Assistant integration.
 
-The built bundle lives at `../custom_components/wake_alarm/www/wake-alarm-card.js`
+The built bundle lives at `../custom_components/wake_alarm/www/wake-alarm-card-bundle.js`; `wake-alarm-card.js` is a small readiness loader
 and is committed to the repo. It ships **inside the integration**, which
-registers it as a static path and auto-loads it as a Lovelace resource —
+registers it as a static path and registers it solely as a Lovelace dashboard resource —
 so users only install the repo once via HACS (Integration), no separate
 Dashboard add or manual resource registration required.
 
@@ -24,7 +24,7 @@ from the same config entry, so you don't have to list them.
 ```bash
 cd card
 npm install
-npm run build         # one-shot bundle to ../custom_components/wake_alarm/www/wake-alarm-card.js
+npm run build         # build the bundle and copy the readiness loader
 npm run build:watch   # rebuild on save
 npm run lint          # type-check via tsc --noEmit
 ```
