@@ -113,3 +113,23 @@ async def test_dismiss_cross_midnight_ramp_consumes_correct_day(env, freezer):
     coord._active_occurrence_date = "2026-05-09"
     await coord.async_dismiss()
     assert coord.next_fire.day == 16
+
+
+async def test_duplicate_alarm_callback_does_not_repeat_music(env, freezer):
+    freezer.move_to(at(5))
+    coord = await env.build(env.make_entry(), days={5})
+    freezer.move_to(at(7))
+    await coord._async_on_alarm(at(7))
+    await env.hass.async_block_till_done()
+    await coord._async_on_alarm(at(7))
+    await env.hass.async_block_till_done()
+    assert env.music.calls == 1
+
+
+async def test_adjustment_starts_remaining_ramp_window(env, freezer):
+    freezer.move_to(at(5))
+    coord = await env.build(env.make_entry(), days={5})
+    await coord.async_adjust_next_alarm(time(5, 10))
+    await env.hass.async_block_till_done()
+    assert env.ramp.calls == 1
+    assert coord.next_fire == at(5, 10)

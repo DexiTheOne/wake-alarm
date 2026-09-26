@@ -426,6 +426,12 @@ class WakeAlarmCoordinator:
                 self._cancel_ramp_schedule = async_track_point_in_time(
                     self.hass, self._async_on_ramp_start, decision.ramp_start
                 )
+            if (
+                decision.inside_ramp_window
+                and not self._cycle_active
+                and self._state == STATE_IDLE
+            ):
+                self._track_task(self._async_on_ramp_start(now))
             if decision.next_fire is not None and decision.next_fire > now:
                 self._cancel_alarm_schedule = async_track_point_in_time(
                     self.hass, self._async_on_alarm, decision.next_fire
@@ -528,6 +534,7 @@ class WakeAlarmCoordinator:
         async with self._schedule_lock:
             idx = [key.split("_")[-1] for key in DAYS].index(day)
             status = self._day_status()[day]
+            previous = dict(self._day_overrides)
             if status["override"] is not None:
                 self._day_overrides.pop(idx, None)
             else:
@@ -535,7 +542,11 @@ class WakeAlarmCoordinator:
                     "date": status["date"],
                     "enabled": not status["enabled"],
                 }
-            await self._save_schedule()
+            try:
+                await self._save_schedule()
+            except Exception:
+                self._day_overrides = previous
+                raise
             if (
                 self._cycle_active
                 and self._active_occurrence_date == status["date"]
@@ -599,8 +610,13 @@ class WakeAlarmCoordinator:
 
     async def async_clear_adjustment(self) -> None:
         async with self._schedule_lock:
+            previous = self._override
             self._override = None
-            await self._save_schedule()
+            try:
+                await self._save_schedule()
+            except Exception:
+                self._override = previous
+                raise
             self.async_recompute_schedule()
 
     async def _consume_occurrence(self, date: str) -> None:
@@ -674,6 +690,8 @@ class WakeAlarmCoordinator:
         the alarm re-checks it separately at alarm_time.
         """
         self._cancel_ramp_schedule = None
+        if self._cycle_active:
+            return
         if not self._read_enabled():
             return
         if not self._gate_ok(what="light ramp"):
